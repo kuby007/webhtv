@@ -43,10 +43,6 @@ public class LyricsController {
         void onResult(LyricsResult result);
     }
 
-    public interface SearchCallback {
-        void onResult(List<LyricsResult> results, boolean complete);
-    }
-
     public interface Listener {
         void onLyricsChanged(LyricsResult result, List<LyricsLine> lines);
     }
@@ -130,69 +126,6 @@ public class LyricsController {
 
     public boolean hasChoice(LyricsRequest request) {
         return request != null && request.isValid() && repository.hasChoice(request);
-    }
-
-    public void reload(PlayerManager player, boolean audioOnly, String keyword, Callback callback) {
-        if (player == null || !audioOnly) {
-            clear();
-            if (callback != null) callback.onResult(null);
-            return;
-        }
-        LyricsRequest request = LyricsRequest.from(player).withKeyword(keyword);
-        if (!request.isValid()) {
-            clear();
-            if (callback != null) callback.onResult(null);
-            return;
-        }
-        String signature = request.stableSignature();
-        loadingSignature = signature;
-        activeSignature = null;
-        emptySignature = null;
-        lines = Collections.emptyList();
-        clearViews();
-        notifyListener();
-        int current = ++sequence;
-        repository.loadPreferWord(request, true, result -> {
-            if (current != sequence) return;
-            loadingSignature = null;
-            if (result == null || !result.isValid()) {
-                emptySignature = signature;
-                clearViews();
-                if (callback != null) callback.onResult(null);
-                return;
-            }
-            ArrayList<LyricsLine> parsed = new ArrayList<>(result.getLines(request.getDurationMs()));
-            if (parsed.isEmpty()) {
-                emptySignature = signature;
-                clearViews();
-                if (callback != null) callback.onResult(null);
-                return;
-            }
-            activeSignature = signature;
-            lines = parsed;
-            setLyrics(result, parsed);
-            update(player);
-            if (callback != null) callback.onResult(result);
-        });
-    }
-
-    public void search(PlayerManager player, boolean audioOnly, String keyword, SearchCallback callback) {
-        if (player == null || !audioOnly) {
-            if (callback != null) callback.onResult(Collections.emptyList(), true);
-            return;
-        }
-        LyricsRequest request = LyricsRequest.from(player).withKeyword(keyword);
-        search(request, callback);
-    }
-
-    public void search(LyricsRequest request, SearchCallback callback) {
-        if (request == null || !request.isValid()) {
-            if (callback != null) callback.onResult(Collections.emptyList(), true);
-            return;
-        }
-        repository.search(request, (results, complete) -> {
-            if (callback != null) callback.onResult(results, complete);
-        });
     }
 
     public void apply(PlayerManager player, LyricsResult result, boolean remember, Callback callback) {

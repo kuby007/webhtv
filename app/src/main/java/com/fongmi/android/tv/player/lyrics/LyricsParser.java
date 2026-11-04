@@ -2,10 +2,12 @@ package com.fongmi.android.tv.player.lyrics;
 
 import android.text.TextUtils;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -265,13 +267,13 @@ public class LyricsParser {
 
     private static String findAuxLine(String raw, long time, List<AuxLine> auxLines, Set<Integer> used) {
         List<String> texts = new ArrayList<>();
-        String primary = LyricsMatcher.normalize(cleanTimedLyric(raw));
+        String primary = normalize(cleanTimedLyric(raw));
         for (int i = 0; i < auxLines.size(); i++) {
             if (used.contains(i)) continue;
             AuxLine line = auxLines.get(i);
             long delta = Math.abs(line.time - time);
             if (delta > AUX_TOLERANCE_MS) continue;
-            if (LyricsMatcher.normalize(line.text).equals(primary)) {
+            if (normalize(line.text).equals(primary)) {
                 used.add(i);
                 continue;
             }
@@ -282,8 +284,8 @@ public class LyricsParser {
     }
 
     private static boolean containsNormalized(List<String> texts, String text) {
-        String target = LyricsMatcher.normalize(text);
-        for (String item : texts) if (LyricsMatcher.normalize(item).equals(target)) return true;
+        String target = normalize(text);
+        for (String item : texts) if (normalize(item).equals(target)) return true;
         return false;
     }
 
@@ -302,9 +304,9 @@ public class LyricsParser {
     }
 
     private static boolean shouldDropIdentityLine(String text, String title, String artist) {
-        String value = LyricsMatcher.normalize(text);
-        String song = LyricsMatcher.normalize(title);
-        String singer = LyricsMatcher.normalize(artist);
+        String value = normalize(text);
+        String song = normalize(title);
+        String singer = normalize(artist);
         if (value.isEmpty() || song.isEmpty() || singer.isEmpty()) return false;
         return value.contains(song) && value.contains(singer);
     }
@@ -324,6 +326,26 @@ public class LyricsParser {
     private static boolean isBlockedCreditLabel(String label) {
         for (String item : CREDIT_BLOCKED_LABELS) if (label.equals(item) || label.contains(item)) return true;
         return false;
+    }
+
+
+    public static String normalize(String text) {
+        String value = cleanText(text).toLowerCase(Locale.ROOT);
+        if (TextUtils.isEmpty(value)) return "";
+        value = ChineseText.toSimplified(Normalizer.normalize(value, Normalizer.Form.NFKC));
+        value = value.replaceAll("\\.[a-z0-9]{2,5}$", "");
+        value = value.replaceAll("\\([^)]*\\)|\\[[^]]*]|（[^）]*）|【[^】]*】", "");
+        value = value.replaceAll("(?i)(?<=[\\u4e00-\\u9fff])\\s*dj(?:[a-z0-9\\u4e00-\\u9fff]*版)?\\s*$", "");
+        value = value.replaceAll("(?i)official|music video|video|audio|lyrics|lyric|mv|flac|mp3|lossless|tv size|short ver\\.?|full ver\\.?|opening|ending|op|ed|feat\\.?|featuring", "");
+        value = value.replaceAll("(?i)(?:live|cover|remix|instrumental|karaoke|off vocal)(?: version| ver\\.?|版)?$", "");
+        value = value.replaceAll("(?:现场版|翻唱版|伴奏版|纯音乐版|原唱版)$", "");
+        value = value.replaceAll("(?i)tvアニメ|テレビアニメ|アニメ|オープニング|エンディング|主題歌|挿入歌", "");
+        value = value.replaceAll("[\\s_\\-.,:;!?/\\\\|+~`'\"#@$%^&*=<>，。！？、·：；“”‘’《》〈〉]+", "");
+        return value.trim();
+    }
+
+    private static String cleanText(String text) {
+        return text == null ? "" : text.trim();
     }
 
 }

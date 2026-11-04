@@ -1317,25 +1317,11 @@
     <string name="player_lyrics_offset">歌词偏移</string>
     <string name="player_lyrics_rows">歌词行数</string>
     <string name="player_lyrics_size">歌词字号</string>
-    <string name="player_lyrics_source">歌词来源</string>
     <string name="player_audio_options">播放选项</string>
     <string name="sheet_back">返回</string>
-    <string name="player_desktop_lyrics">桌面歌词</string>
-    <string name="player_desktop_lyrics_permission">请允许显示在其他应用上层，用于显示桌面歌词</string>
     <string name="player_lyrics_cache">歌词缓存</string>
     <string name="player_lyrics_cache_value">%1$d 项</string>
     <string name="player_lyrics_cache_cleared">歌词缓存已清理</string>
-    <string name="player_lyrics_search">搜索歌词</string>
-    <string name="player_lyrics_reload">重搜歌词</string>
-    <string name="player_lyrics_keyword">歌词关键词</string>
-    <string name="player_lyrics_keyword_required">请输入歌词关键词</string>
-    <string name="player_lyrics_searching">正在搜索歌词...</string>
-    <string name="player_lyrics_not_found">未找到歌词</string>
-    <string name="player_lyrics_loaded">已加载歌词：%1$s</string>
-    <string name="player_lyrics_select">选择歌词</string>
-    <string name="player_lyrics_word">逐字</string>
-    <string name="player_lyrics_synced">逐句</string>
-    <string name="player_lyrics_plain">文本</string>
     <string name="player_audio_badge_audio">音频</string>
     <string name="player_audio_badge_lyrics">歌词</string>
     <string name="player_audio_playlist">歌单</string>
@@ -1369,8 +1355,6 @@
     <string name="player_audio_background_random_plain_done">已随机生成纯背景</string>
     <string name="player_audio_background_random_decoration_done">已随机生成背景装饰</string>
     <string name="player_audio_background_random_mix_done">已随机生成背景搭配</string>
-    <string name="player_lyrics_unknown">未知</string>
-    <string name="player_lyrics_result_item">%1$s · %2$s · %3$d\n%4$s - %5$s</string>
     <string name="player_lyrics_rows_value">%1$d 行</string>
 
 
@@ -1384,17 +1368,6 @@
 
 
 
-    <string-array name="select_lyrics_source">
-        <item>自动</item>
-        <item>本地</item>
-        <item>AMLL TTML</item>
-        <item>QQMusic QRC</item>
-        <item>网易 YRC</item>
-        <item>酷我</item>
-        <item>LRCLIB</item>
-        <item>酷狗</item>
-        <item>咪咕</item>
-    </string-array>
 
 
 

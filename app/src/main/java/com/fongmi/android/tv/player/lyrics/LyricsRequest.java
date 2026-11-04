@@ -55,54 +55,9 @@ public class LyricsRequest {
         return new LyricsRequest(player.getKey(), url, candidate.title, candidate.artist, "", player.getDuration(), candidate.info(), joinSourceText(title, artist));
     }
 
-    public LyricsRequest withKeyword(String keyword) {
-        String value = cleanTitle(keyword, "");
-        if (TextUtils.isEmpty(value)) return this;
-        Candidate candidate = selectKeywordCandidate(value);
-        return new LyricsRequest(key, url, candidate.title, candidate.artist, album, durationMs, candidate.info(), joinSourceText(keyword, sourceText));
-    }
-
     public String displayKeyword() {
         if (TextUtils.isEmpty(artist)) return title;
         return artist + " - " + title;
-    }
-
-    public List<String> searchKeywords() {
-        List<String> keywords = new ArrayList<>();
-        String name = clean(title);
-        String singer = clean(artist);
-        String simpleName = ChineseText.toSimplified(name);
-        String simpleSinger = ChineseText.toSimplified(singer);
-        addKeyword(keywords, simpleName);
-        addKeyword(keywords, name);
-        addKeyword(keywords, stripSearchNoise(simpleName));
-        addKeyword(keywords, normalizeSearchText(simpleName));
-        addKeyword(keywords, simpleSinger, " ", simpleName);
-        addKeyword(keywords, simpleName, " ", simpleSinger);
-        for (String artist : splitArtists(singer)) addKeyword(keywords, artist, " ", name);
-        for (String title : splitTitleAliases(name)) {
-            addKeyword(keywords, title);
-            addKeyword(keywords, singer, " ", title);
-        }
-        return keywords;
-    }
-
-    public List<String> searchSuggestions() {
-        List<String> suggestions = new ArrayList<>();
-        addTitleFirstSuggestions(suggestions, title, artist);
-        addSourceTextSuggestions(suggestions, sourceText);
-        addRawTextSuggestions(suggestions, title);
-        for (String keyword : searchKeywords()) addSuggestion(suggestions, keyword);
-        return limitSuggestions(suggestions);
-    }
-
-    public static List<String> searchSuggestions(String keyword) {
-        List<String> suggestions = new ArrayList<>();
-        addRawTextSuggestions(suggestions, keyword);
-        Candidate candidate = selectKeywordCandidate(cleanTitle(keyword, ""));
-        if (candidate != null) addTitleFirstSuggestions(suggestions, candidate.title, candidate.artist);
-        addSuggestion(suggestions, keyword);
-        return limitSuggestions(suggestions);
     }
 
     public String getKey() {
@@ -154,27 +109,12 @@ public class LyricsRequest {
         return Util.md5("lyrics-v2|meta|" + titleKey + "|" + artistKey + "|" + albumKey);
     }
 
-    public String searchSignature() {
-        return Util.md5("lyrics-search-v2|" + stableSignature() + "|" + identityText(title) + "|" + identityText(artist) + "|" + identityText(album));
-    }
-
     public String contentSignature() {
         return stableSignature();
     }
 
     private static String clean(String text) {
         return Objects.toString(text, "").trim();
-    }
-
-    private static void addKeyword(List<String> keywords, String... parts) {
-        StringBuilder builder = new StringBuilder();
-        for (String part : parts) {
-            String value = clean(part);
-            if (TextUtils.isEmpty(value)) return;
-            builder.append(value);
-        }
-        String keyword = builder.toString().replaceAll("\\s+", " ").trim();
-        if (!TextUtils.isEmpty(keyword) && !containsKeyword(keywords, keyword)) keywords.add(keyword);
     }
 
     private static String joinSourceText(String... values) {
@@ -186,145 +126,6 @@ public class LyricsRequest {
             }
         }
         return String.join("\n", lines);
-    }
-
-    private static void addSuggestion(List<String> suggestions, String... parts) {
-        StringBuilder builder = new StringBuilder();
-        for (String part : parts) {
-            String value = clean(part);
-            if (TextUtils.isEmpty(value)) return;
-            builder.append(value);
-        }
-        String value = builder.toString().replaceAll("\\s+", " ").trim();
-        if (TextUtils.isEmpty(value) || isNoiseToken(value) || containsKeyword(suggestions, value)) return;
-        if (isLowPrioritySuggestion(value)) return;
-        suggestions.add(value);
-    }
-
-    private static void addTitleFirstSuggestions(List<String> suggestions, String rawTitle, String rawArtist) {
-        String name = cleanSuggestion(rawTitle);
-        if (TextUtils.isEmpty(name)) return;
-        addSuggestion(suggestions, name);
-        addArtistSuggestions(suggestions, rawArtist);
-    }
-
-    private static void addRawTextSuggestions(List<String> suggestions, String raw) {
-        String value = stripKnownPrefixes(clean(raw)).text;
-        if (TextUtils.isEmpty(value)) return;
-        addBookTitleSuggestions(suggestions, value);
-        addEmbeddedBookArtistSuggestions(suggestions, value);
-        addDelimitedSuggestions(suggestions, value);
-        addSpaceSplitSuggestions(suggestions, value);
-        addParenthesizedSuggestions(suggestions, value);
-        addSuggestion(suggestions, cleanSuggestion(value));
-    }
-
-    private static void addSourceTextSuggestions(List<String> suggestions, String raw) {
-        for (String item : clean(raw).split("\\n")) addRawTextSuggestions(suggestions, item);
-    }
-
-    private static void addBookTitleSuggestions(List<String> suggestions, String raw) {
-        addBracketContents(suggestions, raw, '《', '》');
-        addBracketContents(suggestions, raw, '「', '」');
-        addBracketContents(suggestions, raw, '『', '』');
-        addBracketContents(suggestions, raw, '<', '>');
-    }
-
-    private static void addParenthesizedSuggestions(List<String> suggestions, String raw) {
-        addBracketContents(suggestions, raw, '(', ')');
-        addBracketContents(suggestions, raw, '（', '）');
-        addBracketContents(suggestions, raw, '[', ']');
-        addBracketContents(suggestions, raw, '【', '】');
-        String removed = raw.replaceAll("\\([^)]*\\)|\\[[^]]*]|（[^）]*）|【[^】]*】", " ");
-        addSuggestion(suggestions, cleanSuggestion(removed));
-    }
-
-    private static void addBracketContents(List<String> suggestions, String raw, char open, char close) {
-        String value = clean(raw);
-        int start = value.indexOf(open);
-        while (start >= 0) {
-            int end = value.indexOf(close, start + 1);
-            if (end <= start) break;
-            addSuggestion(suggestions, cleanSuggestion(value.substring(start + 1, end)));
-            start = value.indexOf(open, end + 1);
-        }
-    }
-
-    private static void addDelimitedSuggestions(List<String> suggestions, String raw) {
-        SplitText split = splitDelimited(raw);
-        if (split == null) return;
-        String left = cleanSuggestion(split.left);
-        String right = cleanSuggestion(split.right);
-        addSuggestion(suggestions, right);
-        if (!hasBookBracket(split.left) && !isLikelyNonTitleToken(left)) addSuggestion(suggestions, left);
-    }
-
-    private static void addSpaceSplitSuggestions(List<String> suggestions, String raw) {
-        String value = cleanSuggestion(raw);
-        if (TextUtils.isEmpty(value) || value.indexOf(' ') < 0) return;
-        String[] parts = value.split("\\s+");
-        if (parts.length != 2) return;
-        addSuggestion(suggestions, parts[1]);
-        addSuggestion(suggestions, parts[0]);
-    }
-
-    private static void addEmbeddedBookArtistSuggestions(List<String> suggestions, String raw) {
-        BookText book = firstBookText(raw);
-        if (book == null || book.start <= 0) return;
-        addArtistSuggestions(suggestions, raw.substring(0, book.start));
-    }
-
-    private static void addArtistSuggestions(List<String> suggestions, String rawArtist) {
-        for (String artist : splitArtists(rawArtist)) addSuggestion(suggestions, artist);
-    }
-
-    private static List<String> prioritizeSearchSuggestions(List<String> suggestions) {
-        List<String> values = new ArrayList<>();
-        if (suggestions != null) {
-            for (String suggestion : suggestions) {
-                String value = clean(suggestion);
-                if (TextUtils.isEmpty(value) || containsKeyword(values, value)) continue;
-                values.add(value);
-            }
-        }
-        values.sort((left, right) -> Integer.compare(suggestionPriority(left), suggestionPriority(right)));
-        int count = Math.min(8, values.size());
-        return new ArrayList<>(values.subList(0, count));
-    }
-
-    private static List<String> limitSuggestions(List<String> suggestions) {
-        return prioritizeSearchSuggestions(suggestions);
-    }
-
-    private static int suggestionPriority(String text) {
-        String value = Normalizer.normalize(clean(text), Normalizer.Form.NFKC).trim();
-        if (TextUtils.isEmpty(value)) return Integer.MAX_VALUE;
-        int length = value.codePointCount(0, value.length());
-        if (value.matches("(?i)^(?:p\\s*)?\\d{1,4}$")) return 600 + length;
-        int score = Math.min(length, 80);
-        if (hasSequencePrefix(value) || value.matches("(?i)^p\\s*\\d{1,4}.*")) score += 260;
-        if (isContainerTitle(value) || isLikelyNonTitleToken(value)) score += 320;
-        if (length > 28) score += 280 + (length - 28) * 3;
-        else if (length > 20) score += 120 + (length - 20) * 2;
-        int digits = 0;
-        for (int offset = 0; offset < value.length();) {
-            int codePoint = value.codePointAt(offset);
-            if (Character.isDigit(codePoint)) digits++;
-            offset += Character.charCount(codePoint);
-        }
-        if (digits >= 2 && digits * 3 >= Math.max(1, length)) score += 180;
-        if (length <= 1) score += 100;
-        return score;
-    }
-
-    private static boolean isLowPrioritySuggestion(String text) {
-        String value = clean(text);
-        return value.indexOf(' ') >= 0 || firstDashIndex(value) >= 0 || hasAnyBracket(value);
-    }
-
-    private static boolean hasAnyBracket(String text) {
-        String value = clean(text);
-        return containsAny(value, "(", ")", "（", "）", "[", "]", "【", "】", "《", "》", "「", "」", "『", "』", "<", ">");
     }
 
     private static boolean isLikelyNonTitleToken(String text) {
@@ -346,14 +147,6 @@ public class LyricsRequest {
         value = value.replaceAll("(?i)\\b(tv size|short ver\\.?|full ver\\.?|instrumental|karaoke|off vocal|cover|remix|live|opening|ending|op|ed)\\b", " ");
         value = value.replaceAll("(?i)tvアニメ|テレビアニメ|アニメ|オープニング|エンディング|主題歌|挿入歌", " ");
         return value.replaceAll("\\s+", " ").trim();
-    }
-
-    private static List<String> splitArtists(String artist) {
-        List<String> values = new ArrayList<>();
-        addBracketArtistParts(values, artist);
-        String withoutBrackets = clean(artist).replaceAll("\\([^)]*\\)|\\[[^]]*]|（[^）]*）|【[^】]*】", " ");
-        addDelimitedArtistParts(values, withoutBrackets);
-        return values;
     }
 
     private static void addBracketArtistParts(List<String> values, String raw) {
@@ -380,15 +173,6 @@ public class LyricsRequest {
             if (TextUtils.isEmpty(value) || isLikelyNonTitleToken(value) || containsKeyword(values, value)) continue;
             values.add(value);
         }
-    }
-
-    private static List<String> splitTitleAliases(String title) {
-        List<String> values = new ArrayList<>();
-        for (String item : clean(title).split("\\s*(?:/|／|,|、|;|；)\\s*")) {
-            String value = normalizeSearchText(item);
-            if (!TextUtils.isEmpty(value) && !containsKeyword(values, value)) values.add(value);
-        }
-        return values;
     }
 
     private static String normalizeSearchText(String text) {
@@ -461,16 +245,6 @@ public class LyricsRequest {
         Candidate best = bestCandidate(candidates);
         if (best != null) return best;
         return new Candidate(title, artist, 0, "fallback", "direct", title);
-    }
-
-    private static Candidate selectKeywordCandidate(String keyword) {
-        ArrayList<Candidate> candidates = new ArrayList<>();
-        addBookTitleCandidate(candidates, keyword, "keyword", 96);
-        addCandidate(candidates, new Candidate(keyword, "", 62, "keyword", "raw", keyword));
-        addFieldCandidates(candidates, keyword, "keyword", hasSequencePrefix(keyword) ? 80 : 48, hasSequencePrefix(keyword) ? Bias.TITLE_ARTIST : Bias.NEUTRAL);
-        addLeadingBracketCandidate(candidates, keyword, "keyword", 58);
-        Candidate best = bestCandidate(candidates);
-        return best == null ? new Candidate(keyword, "", 0, "keyword", "raw", keyword) : best;
     }
 
     private static void addFieldCandidates(List<Candidate> candidates, String raw, String source, int baseConfidence, Bias bias) {

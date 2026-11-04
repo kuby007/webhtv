@@ -417,32 +417,6 @@ public class PlayerSetting {
         Prefers.put("subtitle_position", value);
     }
 
-    public static boolean isDesktopLyrics() {
-        return isImmersiveAudioMode() && Prefers.getBoolean("desktop_lyrics");
-    }
-
-    public static void putDesktopLyrics(boolean value) {
-        Prefers.put("desktop_lyrics", value);
-    }
-
-    public static int getDesktopLyricsX(int defaultValue) {
-        return Prefers.getInt("desktop_lyrics_x", defaultValue);
-    }
-
-    public static int getDesktopLyricsY(int defaultValue) {
-        return Prefers.getInt("desktop_lyrics_y", defaultValue);
-    }
-
-    public static void putDesktopLyricsPosition(int x, int y) {
-        Prefers.put("desktop_lyrics_x", x);
-        Prefers.put("desktop_lyrics_y", y);
-    }
-
-    public static void resetDesktopLyricsPosition() {
-        Prefers.remove("desktop_lyrics_x");
-        Prefers.remove("desktop_lyrics_y");
-    }
-
     public static long getLyricsTimeOffsetMs() {
         return Math.min(Math.max(Prefers.getLong("lyrics_time_offset", 0L), -5000L), 5000L);
     }
