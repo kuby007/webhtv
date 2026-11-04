@@ -5083,15 +5083,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     protected void onDestroy() {
-        if (mCustomButtonPlayer != null) {
-            mCustomButtonPlayer.removeCustomButtonStateListener(mCustomButtonStateListener);
-            mCustomButtonPlayer = null;
-        }
-        if (mDiscMenuPlayer != null) {
-            mDiscMenuPlayer.removeDiscMenuStateListener(mDiscMenuStateListener);
-            mDiscMenuPlayer = null;
-        }
-        mLyricsSearchSeq++;
         stopAudioCoverRotation();
         if (mLyrics != null) {
             mLyrics.setListener(null);
