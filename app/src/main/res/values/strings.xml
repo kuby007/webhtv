@@ -162,7 +162,6 @@
     <string name="setting_manage_page">Management page</string>
     <string name="setting_remote_trust">Remote trust</string>
     <string name="setting_git_cloud">Git cloud drive</string>
-    <string name="git_cloud_account_count">Accounts %1$d</string>
     <string name="dialog_cancel">Cancel</string>
     <string name="dialog_confirm">Confirm</string>
     <string name="remote_trust_server_url">Relay server URL</string>
