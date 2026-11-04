@@ -54,13 +54,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
-        <com.fongmi.android.tv.ui.custom.KaraokeStatusView
-            android:id="@+id/karaoke"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="top|end"
-            android:layout_margin="12dp" />
-
         <include
             android:id="@+id/control"
             layout="@layout/view_control_vod"
@@ -275,12 +268,6 @@
                             android:gravity="center_horizontal"
                             android:orientation="vertical">
 
-                        <com.fongmi.android.tv.ui.custom.KaraokeStatusView
-                            android:id="@+id/audioKaraoke"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp" />
-
                         <androidx.appcompat.widget.LinearLayoutCompat
                             android:id="@+id/audioPlaybackPanel"
                             android:layout_width="match_parent"
@@ -370,13 +357,6 @@
                                 android:layout_marginEnd="4dp"
                                 android:text="@string/player_lyrics_search"
                                 app:drawableTopCompat="@drawable/ic_audio_lyrics" />
-
-                            <com.google.android.material.textview.MaterialTextView
-                                android:id="@+id/audioKaraokeAction"
-                                style="@style/AudioActionButton"
-                                android:layout_marginEnd="4dp"
-                                android:text="@string/player_audio_options"
-                                app:drawableTopCompat="@drawable/ic_action_ktv" />
 
                             <com.google.android.material.textview.MaterialTextView
                                 android:id="@+id/audioMoreAction"

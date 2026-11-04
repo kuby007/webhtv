@@ -131,9 +131,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         binding.ending.setText(parent.control.action.ending.getText());
         binding.opening.setText(parent.control.action.opening.getText());
         binding.repeat.setSelected(parent.control.action.repeat.isSelected());
-        binding.karaoke.setSelected(PlayerSetting.isKaraokeMode());
         binding.immersiveAudio.setSelected(PlayerSetting.isImmersiveAudioMode());
-        setKaraokeVisible();
         setImmersiveAudioVisible();
         binding.timer.setSelected(Timer.get().isRunning());
         setTrackVisible();
@@ -155,7 +153,6 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
     @Override
     protected void initEvent() {
         binding.timer.setOnClickListener(this::onTimer);
-        binding.karaoke.setOnClickListener(v -> setKaraoke());
         binding.immersiveAudio.setOnClickListener(v -> setImmersiveAudio());
         binding.speed.addOnChangeListener(this::setSpeed);
         for (TextView view : speeds) view.setOnClickListener(this::setSpeedPreset);
@@ -179,16 +176,12 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         binding.player.setOnLongClickListener(v -> longClick(binding.player, parent.control.action.player));
         binding.ending.setOnLongClickListener(v -> longClick(binding.ending, parent.control.action.ending));
         binding.opening.setOnLongClickListener(v -> longClick(binding.opening, parent.control.action.opening));
-        binding.karaoke.setOnLongClickListener(v -> {
-            ((Listener) requireActivity()).onKaraokeTrackPanel();
-            return true;
-        });
         bindRemoteFocus();
     }
 
     private void bindRemoteFocus() {
         List<View> views = Arrays.asList(
-                binding.fullscreen, binding.reset, binding.repeat, binding.timer, binding.karaoke,
+                binding.fullscreen, binding.reset, binding.repeat, binding.timer,
                 binding.player, binding.decode, binding.opening, binding.ending, binding.immersiveAudio,
                 binding.panDiagnostic,
                 binding.text, binding.audio, binding.video, binding.danmaku, binding.title,
@@ -209,7 +202,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         if (binding == null || !isAdded()) return;
         binding.controlScroll.scrollTo(0, 0);
         View target = firstFocusable(
-                binding.fullscreen, binding.reset, binding.repeat, binding.timer, binding.karaoke,
+                binding.fullscreen, binding.reset, binding.repeat, binding.timer,
                 binding.player, binding.decode, binding.opening, binding.ending
         );
         if (target == null) target = firstFocusable(speeds.toArray(new View[0]));
@@ -236,12 +229,6 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         if (activity == null || current == null) return;
         dismissAllowingStateLoss();
         App.post(() -> PanNetworkDiagnosticDialog.show(activity, current), 140);
-    }
-
-    private void setKaraoke() {
-        PlayerSetting.putKaraokeMode(!PlayerSetting.isKaraokeMode());
-        binding.karaoke.setSelected(PlayerSetting.isKaraokeMode());
-        ((Listener) requireActivity()).onKaraokeModeChanged();
     }
 
     private void setImmersiveAudio() {
@@ -354,7 +341,6 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         setEpisodeColumn();
         binding.decode.setVisibility(parent.control.action.decode.getVisibility());
         binding.danmaku.setVisibility(parent.control.action.danmaku.getVisibility());
-        setKaraokeVisible();
         setImmersiveAudioVisible();
         setTrackVisible();
     }
@@ -371,10 +357,6 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         boolean visible = binding.text.getVisibility() != View.GONE || binding.audio.getVisibility() != View.GONE || binding.video.getVisibility() != View.GONE || binding.title.getVisibility() != View.GONE || binding.danmaku.getVisibility() != View.GONE;
         binding.trackText.setVisibility(visible ? View.VISIBLE : View.GONE);
         binding.trackRow.setVisibility(visible ? View.VISIBLE : View.GONE);
-    }
-
-    private void setKaraokeVisible() {
-        binding.karaoke.setVisibility(parent.control.action.karaoke.getVisibility());
     }
 
     private void setImmersiveAudioVisible() {
@@ -480,8 +462,6 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
 
         void onImmersiveAudioModeChanged();
 
-        void onKaraokeModeChanged();
 
-        boolean onKaraokeTrackPanel();
     }
 }

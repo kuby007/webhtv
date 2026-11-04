@@ -476,54 +476,6 @@ public class PlayerSetting {
         };
     }
 
-    public static boolean isKaraokeMode() {
-        return isImmersiveAudioMode() && Prefers.getBoolean("karaoke_mode");
-    }
-
-    public static void putKaraokeMode(boolean value) {
-        Prefers.put("karaoke_mode", value);
-    }
-
-    public static int getKaraokeDifficulty() {
-        return Math.min(Math.max(Prefers.getInt("karaoke_difficulty", 0), 0), 2);
-    }
-
-    public static void putKaraokeDifficulty(int value) {
-        Prefers.put("karaoke_difficulty", Math.min(Math.max(value, 0), 2));
-    }
-
-    public static double getKaraokeToleranceSemitones() {
-        return switch (getKaraokeDifficulty()) {
-            case 1 -> 1.5;
-            case 2 -> 1.0;
-            default -> 2.0;
-        };
-    }
-
-    public static long getKaraokeMicDelayMs() {
-        return Math.min(Math.max(Prefers.getLong("karaoke_mic_delay", 0L), -1000L), 1000L);
-    }
-
-    public static void putKaraokeMicDelayMs(long value) {
-        Prefers.put("karaoke_mic_delay", Math.min(Math.max(value, -1000L), 1000L));
-    }
-
-    public static boolean isKaraokeBasicPitchTflite() {
-        return Prefers.getBoolean("karaoke_basic_pitch_tflite");
-    }
-
-    public static void putKaraokeBasicPitchTflite(boolean value) {
-        Prefers.put("karaoke_basic_pitch_tflite", value);
-    }
-
-    public static String getKaraokeGithubSources() {
-        return Prefers.getString("karaoke_github_sources");
-    }
-
-    public static void putKaraokeGithubSources(String value) {
-        Prefers.put("karaoke_github_sources", value == null ? "" : value.trim());
-    }
-
     public static boolean isOsdTitle() {
         return Prefers.getBoolean("player_osd_title");
     }
