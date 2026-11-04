@@ -321,6 +321,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: webhtv-${{ steps.meta.outputs.tag }}
-          path: dist/*
+          path: |
+            dist/*
+            app/build/outputs/mapping/*/mapping.txt
+            app/build/outputs/mapping/*/usage.txt
           if-no-files-found: error
           retention-days: 30
