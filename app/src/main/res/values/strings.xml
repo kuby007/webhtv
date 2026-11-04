@@ -357,10 +357,7 @@
     <string name="remote_trust_delete_device_message">Delete local trust data for %1$s?</string>
     <string name="remote_trust_delete_device_done">Device trust data deleted</string>
     <string name="remote_trust_reset_local">Reset local trust data</string>
-    <string name="remote_trust_scan_server">Scan</string>
-    <string name="remote_trust_scan_unavailable">QR scan is unavailable on this device</string>
     <string name="remote_trust_server_qr">Relay QR code</string>
-    <string name="remote_trust_scan_filled">Scanned URL filled. Tap Done to save.</string>
     <string name="remote_trust_send_server_title">Send relay URL</string>
     <string name="remote_trust_send_server_hint">This will save the relay URL directly on the scanned device.</string>
     <string name="remote_trust_send_server_save">Save to device</string>

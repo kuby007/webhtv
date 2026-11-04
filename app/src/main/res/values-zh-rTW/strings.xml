@@ -356,10 +356,7 @@
     <string name="remote_trust_delete_device_message">刪除 %1$s 的本機託管資料？</string>
     <string name="remote_trust_delete_device_done">設備託管資料已刪除</string>
     <string name="remote_trust_reset_local">重置本機託管資料</string>
-    <string name="remote_trust_scan_server">掃碼</string>
-    <string name="remote_trust_scan_unavailable">目前設備不支援掃碼</string>
     <string name="remote_trust_server_qr">中轉服務 QR Code</string>
-    <string name="remote_trust_scan_filled">已填入掃碼 URL，點擊完成後保存。</string>
     <string name="remote_trust_send_server_title">發送中轉 URL</string>
     <string name="remote_trust_send_server_hint">保存後會直接寫入剛才掃碼的那台設備。</string>
     <string name="remote_trust_send_server_save">保存到對方</string>

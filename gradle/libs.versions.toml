@@ -52,7 +52,6 @@ sardine = "0.9"
 simpleXml = "2.7.1"
 smbj = "0.14.0"
 textdrawable = "1.0.3"
-zxingAndroidEmbedded = "4.3.0"
 zxingCore = "3.5.4"
 
 [libraries]
@@ -131,7 +130,6 @@ sardine = { group = "com.github.thegrizzlylabs", name = "sardine-android", versi
 simple-xml = { group = "org.simpleframework", name = "simple-xml", version.ref = "simpleXml" }
 smbj = { group = "com.hierynomus", name = "smbj", version.ref = "smbj" }
 textdrawable = { group = "com.github.jahirfiquitiva", name = "TextDrawable", version.ref = "textdrawable" }
-zxing-android-embedded = { group = "com.journeyapps", name = "zxing-android-embedded", version.ref = "zxingAndroidEmbedded" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxingCore" }
 
 [plugins]
