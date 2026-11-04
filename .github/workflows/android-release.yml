@@ -317,6 +317,7 @@ jobs:
           .github/scripts/sync-cnb-release.sh
 
       - name: Upload workflow artifacts
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: webhtv-${{ steps.meta.outputs.tag }}
