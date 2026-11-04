@@ -69,7 +69,6 @@ import com.fongmi.android.tv.player.engine.PlayerEngine;
 import com.fongmi.android.tv.player.exo.ass.AssInput;
 import com.fongmi.android.tv.player.exo.ass.ExoAssSession;
 import com.fongmi.android.tv.player.exo.subtitle.ExoSubtitleSession;
-import com.fongmi.android.tv.player.lut.LutSetting;
 import com.fongmi.android.tv.player.track.LangUtil;
 import com.fongmi.android.tv.setting.ExoPerformanceSetting;
 import com.fongmi.android.tv.setting.ExoFrameSchedulingExperimentSetting;
@@ -331,7 +330,7 @@ public class ExoUtil {
         builder.setPreferredTextLanguages(LangUtil.getPreferredTextLanguages());
         ExoTunnelingPolicy.Decision tunneling = getTunnelingDecision(decode, tunnelingFallbackAttempted);
         builder.setTunnelingEnabled(tunneling.enabled());
-        if (SpiderDebug.isEnabled()) SpiderDebug.log("exo-tunnel", "requested=%s enabled=%s reason=%s decode=%d render=%d lut=%s fallback=%s", PlayerSetting.isTunnel(), tunneling.enabled(), tunneling.reason(), decode, PlayerSetting.getRender(), LutSetting.isEnabled(), tunnelingFallbackAttempted);
+        if (SpiderDebug.isEnabled()) SpiderDebug.log("exo-tunnel", "requested=%s enabled=%s reason=%s decode=%d render=%d lut=%s fallback=%s", PlayerSetting.isTunnel(), tunneling.enabled(), tunneling.reason(), decode, PlayerSetting.getRender(), false, tunnelingFallbackAttempted);
         if (PlaybackPerformanceSetting.isTrackLimitEnabled()) {
             applyEnhancedVideoProfile(builder, getEnhancedVideoProfile(decode));
         } else {
@@ -361,7 +360,7 @@ public class ExoUtil {
                 decode != PlayerEngine.SOFT,
                 true,
                 true,
-                LutSetting.isEnabled(),
+                false,
                 false,
                 ExoTunnelingRuntimeState.isBlacklisted(getTunnelingRuntimeKey(decode)),
                 false,

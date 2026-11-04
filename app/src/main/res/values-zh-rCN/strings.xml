@@ -34,6 +34,7 @@
     <string name="play_op">片头</string>
     <string name="play_ed">片尾</string>
     <string name="play_exo">EXO</string>
+    <string name="select_current_dir">选择当前目录</string>
     <string name="play_next">下集</string>
     <string name="play_prev">上集</string>
     <string name="play_stop">停止</string>
@@ -55,7 +56,6 @@
     <string name="play_timer">定时</string>
     <string name="play_title">章节</string>
     <string name="play_scale">原始</string>
-    <string name="play_lut">LUT</string>
     <string name="play_config">配置</string>
     <string name="play_cast">投屏</string>
     <string name="play_change">换源</string>
@@ -919,7 +919,6 @@
     <string name="pan_diagnostic_title">播放链路诊断</string>
     <string name="player_kernel">播放器内核</string>
     <string name="player_scale">缩放比例</string>
-    <string name="player_lut">LUT 调色</string>
     <string name="player_mpv_config">MPV 配置管理</string>
     <string name="player_bluray_menu">蓝光原盘菜单</string>
     <string name="disc_menu_root">主菜单</string>
@@ -1071,36 +1070,6 @@
     <string name="player_speed">长按倍速</string>
     <string name="player_ua">User-Agent</string>
     <string name="player_osd">屏显设置</string>
-    <string name="lut_original">原色</string>
-    <string name="lut_missing">预设不存在</string>
-    <string name="lut_summary">%1$s · %2$d%%</string>
-    <string name="lut_title_value">%1$s · %2$s</string>
-    <string name="lut_strength_value">强度 %1$d%%</string>
-    <string name="lut_preview_delay_value">%1$d秒</string>
-    <string name="lut_import">导入</string>
-    <string name="lut_local">本地</string>
-    <string name="lut_reset">重置</string>
-    <string name="lut_all">全部</string>
-    <string name="lut_favorite">收藏</string>
-    <string name="lut_directory">目录</string>
-    <string name="lut_select_current_dir">选择当前目录</string>
-    <string name="lut_close">关闭</string>
-    <string name="lut_imported">LUT 预设已导入</string>
-    <string name="lut_directory_selected">LUT 目录已选择</string>
-    <string name="lut_import_failed">LUT 导入失败</string>
-    <string name="lut_favorited">已加入收藏</string>
-    <string name="lut_unfavorited">已取消收藏</string>
-    <string name="lut_empty_presets">暂无 LUT 预设</string>
-    <string name="lut_empty_favorites">暂无收藏 LUT</string>
-    <string name="lut_apply_failed">LUT 调色已临时关闭</string>
-    <string name="lut_unavailable_player">当前播放器内核不支持 LUT 调色</string>
-    <string name="lut_unavailable_output_mode">当前输出模式不支持 LUT 调色，请切换为 GPU 输出模式后使用</string>
-    <string name="lut_unavailable_drm">DRM 保护视频不支持 LUT 调色</string>
-    <string name="lut_unavailable_tunnel">隧道模式不支持 LUT 调色</string>
-    <string name="lut_unavailable_soft_decode">软解不支持 LUT 调色</string>
-    <string name="lut_unavailable_video_prefer">扩展视频解码不支持 LUT 调色</string>
-    <string name="lut_unavailable_hdr">HDR/Dolby Vision 内容暂不支持 LUT 调色</string>
-    <string name="lut_unavailable_no_video">当前内容没有视频画面</string>
 
     <!-- Danmaku -->
     <string name="danmaku_load">弹幕加载</string>

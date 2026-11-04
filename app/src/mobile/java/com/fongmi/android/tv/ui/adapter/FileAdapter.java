@@ -79,7 +79,7 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         int itemPosition = visibleStart + position;
         if (selectDir && itemPosition == 0) {
-            holder.binding.name.setText(R.string.lut_select_current_dir);
+            holder.binding.name.setText(R.string.select_current_dir);
             holder.binding.getRoot().setOnClickListener(v -> listener.onCurrentDirClick(dir));
             holder.binding.image.setImageResource(R.drawable.ic_folder);
             return;

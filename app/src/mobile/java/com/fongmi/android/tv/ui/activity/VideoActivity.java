@@ -109,9 +109,6 @@ import com.fongmi.android.tv.player.lyrics.LyricsLine;
 import com.fongmi.android.tv.player.lyrics.LyricsRepository;
 import com.fongmi.android.tv.player.lyrics.LyricsRequest;
 import com.fongmi.android.tv.player.lyrics.LyricsResult;
-import com.fongmi.android.tv.player.lut.LutPreset;
-import com.fongmi.android.tv.player.lut.LutSetting;
-import com.fongmi.android.tv.player.lut.LutStore;
 import com.fongmi.android.tv.player.mpv.MpvConfigStore;
 import com.fongmi.android.tv.service.PlaybackService;
 import com.fongmi.android.tv.setting.DanmakuSetting;
@@ -141,7 +138,6 @@ import com.fongmi.android.tv.ui.dialog.DanmakuDialog;
 import com.fongmi.android.tv.ui.dialog.EpisodeGridDialog;
 import com.fongmi.android.tv.ui.dialog.EpisodeListDialog;
 import com.fongmi.android.tv.ui.dialog.InfoDialog;
-import com.fongmi.android.tv.ui.dialog.LutPanelDialog;
 import com.fongmi.android.tv.ui.dialog.PlayerKernelDialog;
 import com.fongmi.android.tv.ui.dialog.QuickSearchDialog;
 import com.fongmi.android.tv.ui.dialog.ReceiveDialog;
@@ -322,41 +318,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private String playHealthKey;
     private long detailStartTime;
     private long playerStartTime;
-    private boolean pendingLutImport;
     private boolean skipPausePiP;
 
-    private final ActivityResultLauncher<Intent> mLutDir = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) return;
-        LutStore.setUserDir(result.getData().getData(), result.getData().getFlags());
-        Notify.show(R.string.lut_directory_selected);
-        if (hasLutQuick()) mBinding.lutQuick.refreshList();
-        if (pendingLutImport) {
-            pendingLutImport = false;
-            chooseLutFile();
-        }
-    });
 
-    private final ActivityResultLauncher<Intent> mLutFile = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) return;
-        String path = FileChooser.getPathFromUri(result.getData().getData());
-        if (TextUtils.isEmpty(path)) {
-            Notify.show(R.string.lut_import_failed);
-            return;
-        }
-        Task.execute(() -> {
-            try {
-                LutPreset preset = LutStore.importFile(path);
-                App.post(() -> {
-                    Notify.show(R.string.lut_imported);
-                    if (isFullscreen() && hasLutQuick()) mBinding.lutQuick.selectImported(preset, player(), mBinding.exo, this::onLutChanged);
-                    else onLutSelected(preset);
-                });
-            } catch (Exception e) {
-                if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "import failed path=%s error=%s", path, e.getMessage());
-                App.post(() -> Notify.show(Notify.getError(R.string.lut_import_failed, e)));
-            }
-        });
-    });
 
     private final ActivityResultLauncher<Intent> mKaraokeTrackFile = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
         if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null || service() == null) return;
@@ -570,7 +534,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         syncDesktopLyricsAudioContent();
         setPlayerKernel();
         setDecode();
-        setLut();
         applyDeferredFullscreenOrientation();
         checkLand();
         if (consumePendingPlaybackResult()) return;
@@ -586,7 +549,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     protected void onPlayerRebuilt() {
         setPlayerKernel();
         setDecode();
-        setLut();
         refreshControlDialog();
     }
 
@@ -790,7 +752,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.control.action.audio.setOnClickListener(this::onTrack);
         mBinding.control.action.video.setOnClickListener(this::onTrack);
         mBinding.control.action.scale.setOnClickListener(view -> onScale());
-        mBinding.control.action.lut.setOnClickListener(view -> onLut());
         mBinding.control.action.karaoke.setOnClickListener(view -> onKaraokeMode());
         mBinding.control.action.speed.setOnClickListener(view -> onSpeed());
         mBinding.control.action.reset.setOnClickListener(view -> onReset());
@@ -1012,7 +973,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         addActionButton(PlayerButtonSetting.PLAY_PARAMS, mBinding.control.action.playParams);
         addActionButton(PlayerButtonSetting.SPEED, mBinding.control.action.speed);
         addActionButton(PlayerButtonSetting.SCALE, mBinding.control.action.scale);
-        addActionButton(PlayerButtonSetting.LUT, mBinding.control.action.lut);
         addActionButton(PlayerButtonSetting.RESET, mBinding.control.action.reset);
         addActionButton(PlayerButtonSetting.REPEAT, mBinding.control.action.repeat);
         addActionButton(PlayerButtonSetting.TEXT, mBinding.control.action.text);
@@ -1211,10 +1171,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         applyResizeMode(scale);
         mBinding.exo.post(() -> applyResizeMode(scale));
         mBinding.control.action.scale.setText(ResUtil.getStringArray(R.array.select_scale)[scale]);
-    }
-
-    private void setLut() {
-        mBinding.control.action.lut.setText(player().getLutText());
     }
 
     private void setViewModel() {
@@ -3754,72 +3710,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         setR1Callback();
     }
 
-    private void onLut() {
-        if (hasLutQuick()) {
-            mBinding.lutQuick.toggle(player(), mBinding.exo, this::onLutChanged, new com.fongmi.android.tv.ui.custom.LutQuickPanel.ImportCallback() {
-                @Override
-                public void onImportLut() {
-                    onLutImport();
-                }
-
-                @Override
-                public void onSelectLutDir() {
-                    onLutDir();
-                }
-            });
-        }
-        else LutPanelDialog.create().player(player()).show(this);
-        setR1Callback();
-    }
-
-    @Override
-    public void onLutPanel() {
-        if (isFullscreen() && hasLutQuick()) onLut();
-        else LutPanelDialog.create().player(player()).show(this);
-    }
-
-    private boolean hasLutQuick() {
-        return mBinding.lutQuick != null;
-    }
-
-    private void onLutChanged() {
-        setLut();
-    }
-
-    @Override
-    public void onLutImport() {
-        if (!LutStore.hasUserDir()) {
-            pendingLutImport = true;
-            chooseLutDir();
-            return;
-        }
-        chooseLutFile();
-    }
-
-    @Override
-    public void onLutDir() {
-        pendingLutImport = false;
-        chooseLutDir();
-    }
-
-    private void chooseLutFile() {
-        skipPausePiP = true;
-        FileChooser.from(mLutFile).show("*/*", new String[]{"application/octet-stream", "text/*", "image/*", "*/*"});
-    }
-
-    private void chooseLutDir() {
-        skipPausePiP = true;
-        FileChooser.from(mLutDir).showDirectory();
-    }
-
-    @Override
-    public void onLutSelected(LutPreset preset) {
-        if (SpiderDebug.isEnabled()) SpiderDebug.log("lut-ui", "activity select preset=%s enabledBefore=%s current=%s", preset == null ? "original" : preset.getId(), LutSetting.isEnabled(), LutSetting.getPresetId());
-        if (!player().selectLut(preset, preset != null)) return;
-        setLut();
-        setR1Callback();
-    }
-
     private void onSpeed() {
         mBinding.control.action.speed.setText(player().addSpeed());
         saveDefaultSpeed();
@@ -4601,7 +4491,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     protected void onPrepare() {
         setDecode();
-        setLut();
         setPosition();
         refreshLyrics();
     }
@@ -5765,11 +5654,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     protected void onReload(String msg) {
-        if (PlayerManager.RELOAD_LUT_WARMUP.equals(msg)) {
-            if (SpiderDebug.isEnabled()) SpiderDebug.log("lut-ui", "auto refresh after lut warmup playback failure key=%s episode=%s", getKey(), getEpisode() == null ? null : getEpisode().getName());
-            onRefresh();
-            return;
-        }
         super.onReload(msg);
     }
 
@@ -6541,9 +6425,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     @Override
     protected void onBackInvoked() {
-        if (hasLutQuick() && mBinding.lutQuick.hideIfVisible()) {
-            return;
-        } else if (isVisible(mBinding.control.getRoot())) {
+        if (isVisible(mBinding.control.getRoot())) {
             hideControl();
         } else if (isFullscreen() && !isLock()) {
             exitFullscreen();
