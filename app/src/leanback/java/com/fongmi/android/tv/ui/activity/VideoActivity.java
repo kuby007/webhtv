@@ -101,9 +101,6 @@ import com.fongmi.android.tv.player.lyrics.LyricsLine;
 import com.fongmi.android.tv.player.lyrics.LyricsRequest;
 import com.fongmi.android.tv.player.lyrics.LyricsRepository;
 import com.fongmi.android.tv.player.lyrics.LyricsResult;
-import com.fongmi.android.tv.player.lut.LutPreset;
-import com.fongmi.android.tv.player.lut.LutSetting;
-import com.fongmi.android.tv.player.lut.LutStore;
 import com.fongmi.android.tv.player.mpv.MpvConfigStore;
 import com.fongmi.android.tv.service.PlaybackService;
 import com.fongmi.android.tv.setting.DanmakuSetting;
@@ -294,44 +291,13 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private long detailStartTime;
     private long playerStartTime;
     private long mInitialPlaybackPosition = C.TIME_UNSET;
-    private boolean pendingLutImport;
     private boolean playerKernelSwitchRefreshing;
     private MpvPlayer mDiscMenuPlayer;
     private MpvPlayer mCustomButtonPlayer;
     private final Runnable mCustomButtonStateListener = this::updateCustomButtonStates;
     private final Runnable mDiscMenuStateListener = this::updateDiscMenuAction;
 
-    private final ActivityResultLauncher<Intent> mLutDir = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) return;
-        LutStore.setUserDir(result.getData().getData(), result.getData().getFlags());
-        Notify.show(R.string.lut_directory_selected);
-        mBinding.lutQuick.refreshList();
-        if (pendingLutImport) {
-            pendingLutImport = false;
-            chooseLutFile();
-        }
-    });
 
-    private final ActivityResultLauncher<Intent> mLutFile = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) return;
-        String path = FileChooser.getPathFromUri(result.getData().getData());
-        if (TextUtils.isEmpty(path)) {
-            Notify.show(R.string.lut_import_failed);
-            return;
-        }
-        Task.execute(() -> {
-            try {
-                LutPreset preset = LutStore.importFile(path);
-                App.post(() -> {
-                    Notify.show(R.string.lut_imported);
-                    mBinding.lutQuick.selectImported(preset, player(), mBinding.exo, this::onLutChanged);
-                });
-            } catch (Exception e) {
-                if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "import failed path=%s error=%s", path, e.getMessage());
-                App.post(() -> Notify.show(Notify.getError(R.string.lut_import_failed, e)));
-            }
-        });
-    });
 
     private final ActivityResultLauncher<Intent> mKaraokeTrackFile = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
         if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null || service() == null) return;
@@ -548,7 +514,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         player().setDanmakuController(mBinding.exo.getDanmakuController());
         setPlayerKernel();
         setDecode();
-        setLut();
         if (!detailRequested) checkId();
         if (mPendingDetail != null) {
             Result result = mPendingDetail;
@@ -692,7 +657,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             return true;
         });
         mBinding.control.action.scale.setOnClickListener(view -> onScale());
-        mBinding.control.action.lut.setOnClickListener(view -> onLut());
         mBinding.control.action.speed.setOnClickListener(view -> onSpeed());
         mBinding.control.action.reset.setOnClickListener(view -> onReset());
         mBinding.control.action.title.setOnClickListener(view -> onTitle());
@@ -865,7 +829,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         addActionButton(PlayerButtonSetting.CODEC_CAPABILITY, mBinding.control.action.codecCapability);
         addActionButton(PlayerButtonSetting.SPEED, mBinding.control.action.speed);
         addActionButton(PlayerButtonSetting.SCALE, mBinding.control.action.scale);
-        addActionButton(PlayerButtonSetting.LUT, mBinding.control.action.lut);
         addActionButton(PlayerButtonSetting.TEXT, mBinding.control.action.text);
         addActionButton(PlayerButtonSetting.AUDIO, mBinding.control.action.audio);
         addActionButton(PlayerButtonSetting.VIDEO, mBinding.control.action.video);
@@ -1043,14 +1006,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         applyResizeMode(scale);
         mBinding.exo.post(() -> applyResizeMode(scale));
         mBinding.control.action.scale.setText(ResUtil.getStringArray(R.array.select_scale)[scale]);
-    }
-
-    private void setLut() {
-        mBinding.control.action.lut.setText(player().getLutText());
-    }
-
-    private void onLutChanged() {
-        setLut();
     }
 
     private void setViewModel() {
@@ -3108,37 +3063,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         setScale(index == array.length - 1 ? 0 : ++index);
     }
 
-    private void onLut() {
-        mBinding.lutQuick.toggle(player(), mBinding.exo, this::onLutChanged, new com.fongmi.android.tv.ui.custom.LutQuickPanel.ImportCallback() {
-            @Override
-            public void onImportLut() {
-                onLutImport();
-            }
-
-            @Override
-            public void onSelectLutDir() {
-                onLutDir();
-            }
-        });
-        focusLutQuickIfVisible();
-    }
-
-    private void focusLutQuickIfVisible() {
-        mBinding.lutQuick.post(this::focusLutQuickContent);
-        mBinding.lutQuick.postDelayed(this::focusLutQuickContent, 220);
-        mBinding.lutQuick.postDelayed(this::focusLutQuickContent, 420);
-    }
-
-    private boolean focusLutQuickContent() {
-        if (!isVisible(mBinding.lutQuick)) return false;
-        View focus = getCurrentFocus();
-        RecyclerView recycler = findRecyclerView(mBinding.lutQuick);
-        if (focus != null && isChildOf(mBinding.lutQuick, focus) && focus != recycler) return true;
-        if (mBinding.lutQuick.focusSelectedEntry()) return true;
-        if (focusRecyclerItem(recycler)) return true;
-        return focusFirstChild(mBinding.lutQuick);
-    }
-
     private RecyclerView findRecyclerView(View view) {
         if (view instanceof RecyclerView recycler) return recycler;
         if (!(view instanceof ViewGroup group)) return null;
@@ -3201,34 +3125,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             view = next;
         }
         return false;
-    }
-
-    public void onLutImport() {
-        if (!LutStore.hasUserDir()) {
-            pendingLutImport = true;
-            chooseLutDir();
-            return;
-        }
-        chooseLutFile();
-    }
-
-    public void onLutDir() {
-        pendingLutImport = false;
-        chooseLutDir();
-    }
-
-    public void onLutSelected(LutPreset preset) {
-        if (!player().selectLut(preset, preset != null)) return;
-        setLut();
-        setR1Callback();
-    }
-
-    private void chooseLutFile() {
-        FileChooser.from(mLutFile).show("*/*", new String[]{"application/octet-stream", "text/*", "image/*", "*/*"});
-    }
-
-    private void chooseLutDir() {
-        FileChooser.from(mLutDir).showDirectory();
     }
 
     private void onSpeed() {
@@ -3843,8 +3739,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         setDecode();
         SpiderDebug.log("video-flow", "onPrepare decode cost=%dms sincePlayerStart=%dms", System.currentTimeMillis() - start, System.currentTimeMillis() - playerStartTime);
         long step = System.currentTimeMillis();
-        setLut();
-        SpiderDebug.log("video-flow", "onPrepare lut cost=%dms", System.currentTimeMillis() - step);
+        SpiderDebug.log("video-flow", "onPrepare cost=%dms", System.currentTimeMillis() - step);
         step = System.currentTimeMillis();
         setPosition();
         SpiderDebug.log("video-flow", "onPrepare position cost=%dms", System.currentTimeMillis() - step);
@@ -5474,11 +5369,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     @Override
     protected void onReload(String msg) {
-        if (PlayerManager.RELOAD_LUT_WARMUP.equals(msg)) {
-            if (SpiderDebug.isEnabled()) SpiderDebug.log("lut-ui", "auto refresh after lut warmup playback failure key=%s episode=%s", getKey(), getEpisode() == null ? null : getEpisode().getName());
-            onRefresh();
-            return;
-        }
         super.onReload(msg);
     }
 
@@ -5869,10 +5759,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         onItemClick(item);
     }
 
-    public void onLutPanel() {
-        onLut();
-    }
-
     public void onTrackPanel(int type) {
         onTrack(type);
     }
@@ -5956,15 +5842,13 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     protected boolean dispatchDiscMenuKey(KeyEvent event) {
         // Let TV controls own DPAD/ENTER while visible, including the shared
         // PlaybackActivity dispatch performed by super.dispatchKeyEvent().
-        if (isVisible(mBinding.control.getRoot()) || isVisible(mBinding.lutQuick)) return false;
+        if (isVisible(mBinding.control.getRoot())) return false;
         return super.dispatchDiscMenuKey(event);
     }
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (dispatchDiscMenuKey(event)) return true;
-        if (KeyUtil.isActionUp(event) && KeyUtil.isBackKey(event) && mBinding.lutQuick.hideIfVisible()) return true;
-        if (isVisible(mBinding.lutQuick)) return dispatchLutQuickKey(event);
         if (isFullscreen() && KeyUtil.isMenuKey(event)) onToggle();
         if (isVisible(mBinding.control.getRoot())) setR1Callback();
         if (isVisible(mBinding.control.getRoot())) mFocus2 = getCurrentFocus();
@@ -6077,6 +5961,24 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (view.isFocusable()) focusables.add(view);
     }
 
+    private boolean isDirectionalFocusCandidate(Rect current, Rect candidate, KeyEvent event) {
+        int dx = candidate.centerX() - current.centerX();
+        int dy = candidate.centerY() - current.centerY();
+        if (KeyUtil.isLeftKey(event)) return dx < 0 && isSameFocusRow(current, candidate);
+        if (KeyUtil.isRightKey(event)) return dx > 0 && isSameFocusRow(current, candidate);
+        if (KeyUtil.isUpKey(event)) return dy < 0;
+        if (KeyUtil.isDownKey(event)) return dy > 0;
+        return false;
+    }
+
+    private long scoreDirectionalFocusCandidate(Rect current, Rect candidate, KeyEvent event) {
+        long dx = Math.abs(candidate.centerX() - current.centerX());
+        long dy = Math.abs(candidate.centerY() - current.centerY());
+        long primary = KeyUtil.isLeftKey(event) || KeyUtil.isRightKey(event) ? dx : dy;
+        long secondary = KeyUtil.isLeftKey(event) || KeyUtil.isRightKey(event) ? dy : dx;
+        return primary * 1000 + secondary;
+    }
+
     private View findAudioStageFocusTarget(View focus, List<View> focusables, KeyEvent event) {
         Rect current = new Rect();
         if (focus == null || !focus.getGlobalVisibleRect(current)) return null;
@@ -6085,56 +5987,14 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         for (View item : focusables) {
             if (item == focus) continue;
             Rect candidate = new Rect();
-            if (!item.getGlobalVisibleRect(candidate) || !isLutQuickFocusCandidate(current, candidate, event)) continue;
-            long score = scoreLutQuickFocusCandidate(current, candidate, event);
+            if (!item.getGlobalVisibleRect(candidate) || !isDirectionalFocusCandidate(current, candidate, event)) continue;
+            long score = scoreDirectionalFocusCandidate(current, candidate, event);
             if (score < bestScore) {
                 bestScore = score;
                 target = item;
             }
         }
         return target;
-    }
-
-    private boolean dispatchLutQuickKey(KeyEvent event) {
-        if (KeyUtil.isEnterKey(event)) return dispatchLutQuickEnter(event);
-        if (isLutQuickDirectionKey(event)) return dispatchLutQuickDirection(event);
-        if (KeyUtil.isActionDown(event)) focusLutQuickContent();
-        boolean handled = super.dispatchKeyEvent(event);
-        if (KeyUtil.isActionDown(event)) {
-            View focus = getCurrentFocus();
-            if (focus == null || !isChildOf(mBinding.lutQuick, focus)) focusLutQuickContent();
-        }
-        return true;
-    }
-
-    private boolean isLutQuickDirectionKey(KeyEvent event) {
-        return KeyUtil.isUpKey(event) || KeyUtil.isDownKey(event) || KeyUtil.isLeftKey(event) || KeyUtil.isRightKey(event);
-    }
-
-    private boolean dispatchLutQuickDirection(KeyEvent event) {
-        if (!KeyUtil.isActionDown(event)) return true;
-        RecyclerView recycler = findRecyclerView(mBinding.lutQuick);
-        View focus = getCurrentFocus();
-        if (recycler != null && (focus == recycler || isChildOf(recycler, focus)) && moveLutQuickRecycler(recycler, event)) return true;
-        if (focus == null || !isChildOf(mBinding.lutQuick, focus) || focus == recycler) {
-            focusLutQuickContent();
-            focus = getCurrentFocus();
-        }
-        if (focus != null && isChildOf(mBinding.lutQuick, focus) && moveLutQuickFocus(focus, event)) return true;
-        if (recycler != null && KeyUtil.isDownKey(event) && focusRecyclerItem(recycler)) return true;
-        focusLutQuickContent();
-        return true;
-    }
-
-    private boolean moveLutQuickRecycler(RecyclerView recycler, KeyEvent event) {
-        if (!KeyUtil.isUpKey(event) && !KeyUtil.isDownKey(event)) return false;
-        RecyclerView.Adapter<?> adapter = recycler.getAdapter();
-        if (adapter == null || adapter.getItemCount() <= 0) return false;
-        int current = getRecyclerFocusPosition(recycler);
-        if (current == RecyclerView.NO_POSITION) return mBinding.lutQuick.focusSelectedEntry();
-        int next = current + (KeyUtil.isDownKey(event) ? 1 : -1);
-        if (next < 0 || next >= adapter.getItemCount()) return false;
-        return focusRecyclerPosition(recycler, next);
     }
 
     private int getRecyclerFocusPosition(RecyclerView recycler) {
@@ -6151,79 +6011,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         return null;
     }
 
-    private boolean moveLutQuickFocus(View focus, KeyEvent event) {
-        List<View> focusables = new ArrayList<>();
-        collectLutQuickFocusables(mBinding.lutQuick, focusables);
-        View target = findLutQuickFocusTarget(focus, focusables, event);
-        return target != null && target.requestFocus();
-    }
-
-    private void collectLutQuickFocusables(View view, List<View> focusables) {
-        if (view == null || view.getVisibility() != View.VISIBLE || !view.isEnabled()) return;
-        if (view instanceof RecyclerView recycler) {
-            for (int i = 0; i < recycler.getChildCount(); i++) collectLutQuickFocusables(recycler.getChildAt(i), focusables);
-            return;
-        }
-        if (view instanceof ViewGroup group) {
-            for (int i = 0; i < group.getChildCount(); i++) collectLutQuickFocusables(group.getChildAt(i), focusables);
-            return;
-        }
-        if (view.isFocusable()) focusables.add(view);
-    }
-
-    private View findLutQuickFocusTarget(View focus, List<View> focusables, KeyEvent event) {
-        Rect current = new Rect();
-        if (focus == null || !focus.getGlobalVisibleRect(current)) return null;
-        View target = null;
-        long bestScore = Long.MAX_VALUE;
-        for (View item : focusables) {
-            if (item == focus) continue;
-            Rect candidate = new Rect();
-            if (!item.getGlobalVisibleRect(candidate) || !isLutQuickFocusCandidate(current, candidate, event)) continue;
-            long score = scoreLutQuickFocusCandidate(current, candidate, event);
-            if (score < bestScore) {
-                bestScore = score;
-                target = item;
-            }
-        }
-        return target;
-    }
-
-    private boolean isLutQuickFocusCandidate(Rect current, Rect candidate, KeyEvent event) {
-        int dx = candidate.centerX() - current.centerX();
-        int dy = candidate.centerY() - current.centerY();
-        if (KeyUtil.isLeftKey(event)) return dx < 0 && isSameFocusRow(current, candidate);
-        if (KeyUtil.isRightKey(event)) return dx > 0 && isSameFocusRow(current, candidate);
-        if (KeyUtil.isUpKey(event)) return dy < 0;
-        if (KeyUtil.isDownKey(event)) return dy > 0;
-        return false;
-    }
-
     private boolean isSameFocusRow(Rect current, Rect candidate) {
         return Math.abs(candidate.centerY() - current.centerY()) <= Math.max(current.height(), candidate.height());
-    }
-
-    private long scoreLutQuickFocusCandidate(Rect current, Rect candidate, KeyEvent event) {
-        long dx = Math.abs(candidate.centerX() - current.centerX());
-        long dy = Math.abs(candidate.centerY() - current.centerY());
-        long primary = KeyUtil.isLeftKey(event) || KeyUtil.isRightKey(event) ? dx : dy;
-        long secondary = KeyUtil.isLeftKey(event) || KeyUtil.isRightKey(event) ? dy : dx;
-        return primary * 1000 + secondary;
-    }
-
-    private boolean dispatchLutQuickEnter(KeyEvent event) {
-        if (KeyUtil.isActionDown(event)) {
-            focusLutQuickContent();
-            return true;
-        }
-        if (!KeyUtil.isActionUp(event)) return true;
-        View focus = getCurrentFocus();
-        if (focus == null || !isChildOf(mBinding.lutQuick, focus) || focus instanceof RecyclerView) {
-            if (!focusLutQuickContent()) return true;
-            focus = getCurrentFocus();
-        }
-        if (focus != null && isChildOf(mBinding.lutQuick, focus) && focus.isEnabled()) focus.performClick();
-        return true;
     }
 
     @Override
@@ -6334,9 +6123,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     @Override
     protected void onBackInvoked() {
-        if (mBinding.lutQuick.hideIfVisible()) {
-            return;
-        } else if (isVisible(mBinding.control.getRoot())) {
+        if (isVisible(mBinding.control.getRoot())) {
             hideControl();
         } else if (isVisible(mBinding.widget.center)) {
             hideCenter();

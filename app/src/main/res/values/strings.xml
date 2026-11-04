@@ -35,6 +35,7 @@
     <string name="play_op">OP</string>
     <string name="play_ed">ED</string>
     <string name="play_exo">EXO</string>
+    <string name="select_current_dir">Use this folder</string>
     <string name="play_next">Next</string>
     <string name="play_prev">Prev</string>
     <string name="play_stop">Stop</string>
@@ -56,7 +57,6 @@
     <string name="play_timer">Timer</string>
     <string name="play_title">Chapter</string>
     <string name="play_scale">Default</string>
-    <string name="play_lut">LUT</string>
     <string name="play_config">Config</string>
     <string name="play_cast">Cast</string>
     <string name="play_change">Change</string>
@@ -921,7 +921,6 @@
     <string name="pan_diagnostic_title">Playback link diagnostics</string>
     <string name="player_kernel">Player engine</string>
     <string name="player_scale">Scale</string>
-    <string name="player_lut">LUT color</string>
     <string name="player_mpv_config">MPV config manager</string>
     <string name="player_bluray_menu">Blu-ray disc menu</string>
     <string name="disc_menu_root">Top menu</string>
@@ -1073,36 +1072,6 @@
     <string name="player_speed">Press speed</string>
     <string name="player_ua">User-Agent</string>
     <string name="player_osd">On-screen display</string>
-    <string name="lut_original">Original</string>
-    <string name="lut_missing">Preset missing</string>
-    <string name="lut_summary">%1$s · %2$d%%</string>
-    <string name="lut_title_value">%1$s · %2$s</string>
-    <string name="lut_strength_value">Strength %1$d%%</string>
-    <string name="lut_preview_delay_value">%1$ds</string>
-    <string name="lut_import">Import</string>
-    <string name="lut_local">Local</string>
-    <string name="lut_reset">Reset</string>
-    <string name="lut_all">All</string>
-    <string name="lut_favorite">Favorite</string>
-    <string name="lut_directory">Folder</string>
-    <string name="lut_select_current_dir">Use this folder</string>
-    <string name="lut_close">Close</string>
-    <string name="lut_imported">LUT preset imported</string>
-    <string name="lut_directory_selected">LUT folder selected</string>
-    <string name="lut_import_failed">LUT import failed</string>
-    <string name="lut_favorited">Added to favorites</string>
-    <string name="lut_unfavorited">Removed from favorites</string>
-    <string name="lut_empty_presets">No LUT presets</string>
-    <string name="lut_empty_favorites">No favorite LUT presets</string>
-    <string name="lut_apply_failed">LUT color has been disabled temporarily</string>
-    <string name="lut_unavailable_player">Current player engine does not support LUT color</string>
-    <string name="lut_unavailable_output_mode">Current output mode does not support LUT color. Switch to GPU output mode to use it</string>
-    <string name="lut_unavailable_drm">DRM protected videos do not support LUT color</string>
-    <string name="lut_unavailable_tunnel">Tunnel mode does not support LUT color</string>
-    <string name="lut_unavailable_soft_decode">Software decode does not support LUT color</string>
-    <string name="lut_unavailable_video_prefer">Extension video decode does not support LUT color</string>
-    <string name="lut_unavailable_hdr">HDR/Dolby Vision content does not support LUT color yet</string>
-    <string name="lut_unavailable_no_video">Current content has no video track</string>
 
     <!-- Danmaku -->
     <string name="danmaku_load">Danmaku load</string>

@@ -26,7 +26,6 @@ import com.fongmi.android.tv.bean.Parse;
 import com.fongmi.android.tv.databinding.ActivityVideoBinding;
 import com.fongmi.android.tv.databinding.DialogControlBinding;
 import com.fongmi.android.tv.player.PlayerManager;
-import com.fongmi.android.tv.player.lut.LutPreset;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.adapter.ParseAdapter;
@@ -130,7 +129,6 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         setControlPadding();
         setSheetBackground();
         binding.decode.setText(parent.control.action.decode.getText());
-        setLut();
         binding.ending.setText(parent.control.action.ending.getText());
         binding.opening.setText(parent.control.action.opening.getText());
         binding.repeat.setSelected(parent.control.action.repeat.isSelected());
@@ -173,7 +171,6 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         binding.decode.setOnClickListener(v -> click(binding.decode, parent.control.action.decode));
         binding.codecCapability.setOnClickListener(v -> ((Listener) requireActivity()).onCodecCapabilityPanel());
         binding.panDiagnostic.setOnClickListener(v -> onPanDiagnostic());
-        binding.lut.setOnClickListener(v -> onLut());
         binding.ending.setOnClickListener(v -> click(binding.ending, parent.control.action.ending));
         binding.opening.setOnClickListener(v -> click(binding.opening, parent.control.action.opening));
         binding.player.setOnLongClickListener(v -> longClick(binding.player, parent.control.action.player));
@@ -281,10 +278,6 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         view.setText(target.getText());
     }
 
-    private void onLut() {
-        ((Listener) requireActivity()).onLutPanel();
-    }
-
     private boolean longClick(TextView view, TextView target) {
         target.performLongClick();
         view.setText(target.getText());
@@ -302,17 +295,11 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         setSpeedPresets();
         binding.player.setText(parent.control.action.player.getText());
         binding.reset.setText(parent.control.action.reset.getText());
-        setLut();
         setEpisodeColumn();
         binding.decode.setVisibility(parent.control.action.decode.getVisibility());
         binding.danmaku.setVisibility(parent.control.action.danmaku.getVisibility());
         setImmersiveAudioVisible();
         setTrackVisible();
-    }
-
-    public void setLut() {
-        if (binding == null || !resolveHostDependencies()) return;
-        binding.lut.setText(parent.control.action.lut.getText());
     }
 
     private boolean resolveHostDependencies() {
@@ -445,14 +432,6 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
         void onCompactEpisodeTitleChanged();
 
         void onParse(Parse item);
-
-        void onLutSelected(LutPreset preset);
-
-        void onLutImport();
-
-        void onLutDir();
-
-        void onLutPanel();
 
         void onTrackPanel(int type);
 

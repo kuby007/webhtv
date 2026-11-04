@@ -24,7 +24,6 @@ public class PlayerButtonSetting {
     public static final String CODEC_CAPABILITY = "codec_capability";
     public static final String SPEED = "speed";
     public static final String SCALE = "scale";
-    public static final String LUT = "lut";
     public static final String KARAOKE = "karaoke";
     public static final String RESET = "reset";
     public static final String REPEAT = "repeat";
@@ -50,7 +49,6 @@ public class PlayerButtonSetting {
             new Item(CODEC_CAPABILITY, R.string.codec_capability_short),
             new Item(SPEED, R.string.play_speed),
             new Item(SCALE, R.string.play_scale),
-            new Item(LUT, R.string.play_lut),
             new Item(RESET, R.string.play_reset),
             new Item(REPEAT, R.string.play_repeat),
             new Item(TEXT, R.string.play_track_text),

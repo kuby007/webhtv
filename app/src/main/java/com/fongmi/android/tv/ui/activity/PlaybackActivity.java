@@ -250,10 +250,6 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     protected void onServiceConnected() {
     }
 
-    protected boolean isLutAllowed() {
-        return true;
-    }
-
     protected void onPrepare() {
     }
 
@@ -585,7 +581,6 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
 
     private int getRender() {
         if (mService != null && player().isNativePlayer()) return 0;
-        if (mService != null && player().requiresTextureRenderForLut()) return PlayerSetting.RENDER_TEXTURE;
         return PlayerSetting.getRender();
     }
 
@@ -860,7 +855,6 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
         mService.setNavigationCallback(getNavigationCallback(), getPlaybackKey());
         mService.addPlayerCallback(mPlayerCallback);
         getSeekView().setProgressPlayer(player().getPlayer());
-        player().setLutAllowed(isLutAllowed());
         player().setDanmakuForeground(true);
         publishRenderTarget(getExoView().getVideoSurfaceView());
         applyExoOutputMode();

@@ -105,12 +105,6 @@
             android:text="@string/play_scale" />
 
         <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/lut"
-            style="@style/Control"
-            android:layout_marginEnd="8dp"
-            android:text="@string/play_lut" />
-
-        <com.google.android.material.textview.MaterialTextView
             android:id="@+id/karaoke"
             style="@style/Control"
             android:layout_marginEnd="12dp"

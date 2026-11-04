@@ -15,7 +15,6 @@ import com.fongmi.android.tv.player.AudioPlaybackDiagnostics;
 import com.fongmi.android.tv.player.PlaybackRoute;
 import com.fongmi.android.tv.player.PlaybackResourceClassifier;
 import com.fongmi.android.tv.player.PlaybackTrace;
-import com.fongmi.android.tv.player.lut.MpvLutShader;
 
 import java.util.Collections;
 import java.util.List;
@@ -79,20 +78,6 @@ public interface PlayerEngine {
     }
 
     default void setVideoEffects(List<Effect> effects) {
-    }
-
-    default boolean supportsNativeLut() {
-        return false;
-    }
-
-    default boolean supportsLut() {
-        return supportsVideoEffects() || supportsNativeLut();
-    }
-
-    default void setNativeLutShader(MpvLutShader shader) {
-    }
-
-    default void setNativeLutPreviewProgress(float progress) {
     }
 
     default Format getVideoFormat() {

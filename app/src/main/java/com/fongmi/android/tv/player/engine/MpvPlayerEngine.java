@@ -28,8 +28,6 @@ import com.fongmi.android.tv.player.PlaybackTrace;
 import com.fongmi.android.tv.player.codec.CodecCapabilityInspector;
 import com.fongmi.android.tv.player.exo.ExoUtil;
 import com.fongmi.android.tv.player.exo.TrackUtil;
-import com.fongmi.android.tv.player.lut.MpvLutShader;
-import com.fongmi.android.tv.player.lut.LutSetting;
 import com.fongmi.android.tv.player.mpv.MpvConfigStore;
 import com.fongmi.android.tv.player.mpv.MpvAutoControlPolicy;
 import com.fongmi.android.tv.player.mpv.MpvAutoOutputPolicy;
@@ -308,11 +306,6 @@ public class MpvPlayerEngine implements PlayerEngine {
         return player.getFrameTimingSnapshot();
     }
 
-    @Override
-    public boolean supportsNativeLut() {
-        return !isSurfaceDirect();
-    }
-
     public boolean isSurfaceDirect() {
         if (player.isAndroidFelActive()) return false;
         String observed = player.getObservedCurrentVideoOutput();
@@ -407,16 +400,6 @@ public class MpvPlayerEngine implements PlayerEngine {
     /** Proxy-only upstream and disk facts; this never performs a native query. */
     public MpvPlayer.AutoHlsPreloadRuntimeSnapshot getAutoHlsPreloadRuntimeSnapshot() {
         return player.getAutoHlsPreloadRuntimeSnapshot();
-    }
-
-    @Override
-    public void setNativeLutShader(MpvLutShader shader) {
-        player.setLutShader(shader);
-    }
-
-    @Override
-    public void setNativeLutPreviewProgress(float progress) {
-        player.setLutPreviewProgress(progress);
     }
 
     @Override
@@ -954,7 +937,7 @@ public class MpvPlayerEngine implements PlayerEngine {
         boolean autoDirectEligible = MpvAutoOutputPolicy.canStartSurfaceDirect(
                 decode == HARD,
                 Util.isLeanback(),
-                MpvPerformanceSetting.isInterpolation() || LutSetting.isEnabled(),
+                MpvPerformanceSetting.isInterpolation(),
                 MpvConfigStore.hasGpuVideoProcessing());
         surfaceDirect = (surfaceDirectOverride == null
                 ? MpvPerformanceSetting.shouldUseSurfaceDirect(autoDirectEligible, Util.isLeanback(), decode == HARD)
