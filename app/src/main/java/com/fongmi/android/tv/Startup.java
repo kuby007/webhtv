@@ -7,7 +7,7 @@ import androidx.startup.Initializer;
 
 import com.fongmi.android.tv.event.EventIndex;
 import com.fongmi.android.tv.setting.Setting;
-import com.fongmi.android.tv.player.mpv.PlaybackRecoveryMonitor;
+import com.fongmi.android.tv.player.PlaybackRecoveryMonitor;
 import com.fongmi.android.tv.ui.activity.CrashActivity;
 import com.github.catvod.bean.Doh;
 import com.github.catvod.net.OkHttp;

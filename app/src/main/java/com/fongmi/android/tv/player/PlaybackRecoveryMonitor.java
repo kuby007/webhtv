@@ -1,4 +1,4 @@
-package com.fongmi.android.tv.player.mpv;
+package com.fongmi.android.tv.player;
 
 import android.app.Activity;
 import android.app.Application;

@@ -54,7 +54,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
-import androidx.media3.mpvplayer.MpvPlayer;
 import androidx.media3.ui.PlayerView;
 import androidx.palette.graphics.Palette;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -97,7 +96,6 @@ import com.fongmi.android.tv.player.lyrics.LyricsLine;
 import com.fongmi.android.tv.player.lyrics.LyricsRequest;
 import com.fongmi.android.tv.player.lyrics.LyricsRepository;
 import com.fongmi.android.tv.player.lyrics.LyricsResult;
-import com.fongmi.android.tv.player.mpv.MpvConfigStore;
 import com.fongmi.android.tv.service.PlaybackService;
 import com.fongmi.android.tv.setting.DanmakuSetting;
 import com.fongmi.android.tv.setting.PlayerButtonSetting;
@@ -264,8 +262,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private long playerStartTime;
     private long mInitialPlaybackPosition = C.TIME_UNSET;
     private boolean playerKernelSwitchRefreshing;
-    private MpvPlayer mDiscMenuPlayer;
-    private MpvPlayer mCustomButtonPlayer;
     private final Runnable mCustomButtonStateListener = this::updateCustomButtonStates;
     private final Runnable mDiscMenuStateListener = this::updateDiscMenuAction;
 
@@ -782,17 +778,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void updateDiscMenuAction() {
-        updateCustomButtonStates();
-        MpvPlayer mpv = service() != null && isOwner()
-                && player().getPlayer() instanceof MpvPlayer active ? active : null;
-        if (mDiscMenuPlayer != mpv) {
-            if (mDiscMenuPlayer != null) mDiscMenuPlayer.removeDiscMenuStateListener(mDiscMenuStateListener);
-            mDiscMenuPlayer = mpv;
-            if (mpv != null) mpv.addDiscMenuStateListener(mDiscMenuStateListener);
-        }
-        boolean available = mpv != null && mpv.isDiscMenuAvailable();
-        if (!available && mBinding.control.action.discMenu.hasFocus()) mBinding.control.action.playParams.requestFocus();
-        mBinding.control.action.discMenu.setVisibility(available ? View.VISIBLE : View.GONE);
+        mBinding.control.action.discMenu.setVisibility(View.GONE);
     }
 
     private void addActionButton(String id, View view) {
@@ -800,84 +786,16 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void setupCustomActionButtons() {
-        ensureCustomButtonContainers();
-        for (View view : mCustomActionViews) {
-            ViewParent parent = view.getParent();
-            if (parent instanceof ViewGroup) ((ViewGroup) parent).removeView(view);
-        }
-        mCustomActionViews.clear();
-        mCustomPortraitButtonRow.removeAllViews();
-        List<MpvConfigStore.CustomButton> buttons = MpvConfigStore.customButtons();
-        for (int index = 0; index < buttons.size(); index++) {
-            MpvConfigStore.CustomButton button = buttons.get(index);
-            if (!button.isButtonVisible()) continue;
-            TextView view = new TextView(this);
-            view.setTextSize(13);
-            view.setTextColor(Color.WHITE);
-            view.setGravity(Gravity.CENTER);
-            view.setMinHeight(ResUtil.dp2px(40));
-            view.setMinWidth(ResUtil.dp2px(56));
-            view.setPadding(ResUtil.dp2px(10), ResUtil.dp2px(4), ResUtil.dp2px(10), ResUtil.dp2px(4));
-            view.setBackgroundResource(R.drawable.selector_control_sheet_button);
-            view.setText(button.title);
-            view.setSingleLine(true);
-            view.setMaxWidth(ResUtil.dp2px(144));
-            view.setEllipsize(TextUtils.TruncateAt.END);
-            view.setContentDescription(button.title);
-            view.setTag(button.id);
-            view.setOnClickListener(item -> {
-                player().sendMpvCustomButton(button.id, false);
-                setR1Callback();
-            });
-            view.setOnLongClickListener(item -> {
-                player().sendMpvCustomButton(button.id, true);
-                setR1Callback();
-                return true;
-            });
-            view.setFocusable(true);
-            view.setFocusableInTouchMode(true);
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ResUtil.dp2px(40));
-            params.setMargins(ResUtil.dp2px(4), ResUtil.dp2px(2), ResUtil.dp2px(4), ResUtil.dp2px(2));
-            mCustomPortraitButtonRow.addView(view, params);
-            mCustomActionViews.add(view);
-        }
-        updateCustomButtonVisibility();
     }
 
     private void updateCustomButtonStates() {
-        MpvPlayer mpv = service() != null && isOwner()
-                && player().getPlayer() instanceof MpvPlayer active ? active : null;
-        if (mCustomButtonPlayer != mpv) {
-            if (mCustomButtonPlayer != null) mCustomButtonPlayer.removeCustomButtonStateListener(mCustomButtonStateListener);
-            mCustomButtonPlayer = mpv;
-            if (mpv != null) mpv.addCustomButtonStateListener(mCustomButtonStateListener);
-        }
-        for (View view : mCustomActionViews) {
-            view.setSelected(mpv != null && mpv.isCustomButtonActive((String) view.getTag()));
-        }
     }
 
     private void ensureCustomButtonContainers() {
-        if (mCustomPortraitButtons != null) return;
-        mCustomPortraitButtons = new HorizontalScrollView(this);
-        mCustomPortraitButtons.setHorizontalScrollBarEnabled(false);
-        mCustomPortraitButtons.setFillViewport(false);
-        mCustomPortraitButtons.setClipToPadding(false);
-        mCustomPortraitButtons.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        mCustomPortraitButtonRow = new LinearLayout(this);
-        mCustomPortraitButtonRow.setGravity(Gravity.CENTER_VERTICAL);
-        mCustomPortraitButtonRow.setOrientation(LinearLayout.HORIZONTAL);
-        mCustomPortraitButtonRow.setClipChildren(false);
-        mCustomPortraitButtons.addView(mCustomPortraitButtonRow, new HorizontalScrollView.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        params.setMargins(0, 0, 0, ResUtil.dp2px(8));
-        ((ViewGroup) mBinding.control.getRoot()).addView(mCustomPortraitButtons, 0, params);
     }
 
     private void updateCustomButtonVisibility() {
-        updateCustomButtonStates();
-        boolean visible = service() != null && player().isMpv() && isVisible(mBinding.control.getRoot());
-        if (mCustomPortraitButtons != null) mCustomPortraitButtons.setVisibility(visible ? View.VISIBLE : View.GONE);
+        if (mCustomPortraitButtons != null) mCustomPortraitButtons.setVisibility(View.GONE);
     }
 
     private void applyActionButtonVisibility() {

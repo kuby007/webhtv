@@ -85,7 +85,6 @@ public final class NativeLibraryDiagnostics {
                         .observed("library", library.name).observed("source", library.source).observed("loadResult", "executable-mapping-observed")
                         .observed("abi", identity.abi).observed("buildId", identity.buildId).observed("actualDigest", identity.actual)
                         .observed("expectedDigest", identity.expected).observed("manifestMatch", identity.expected == null ? null : identity.expected.equals(identity.actual))
-                        .observed("config", library.asset == null ? null : com.fongmi.android.tv.BuildConfig.MPV_NATIVE_SOURCES)
                         .observed("metricScope", "own process executable mappings and backing ELF/package bytes; not memory-content hashing")
                         .pin("library-" + library.name);
                 DebugLogStore.event(event);

@@ -57,7 +57,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
-import androidx.media3.mpvplayer.MpvPlayer;
 import androidx.media3.ui.PlayerView;
 import androidx.palette.graphics.Palette;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -105,7 +104,6 @@ import com.fongmi.android.tv.player.lyrics.LyricsLine;
 import com.fongmi.android.tv.player.lyrics.LyricsRepository;
 import com.fongmi.android.tv.player.lyrics.LyricsRequest;
 import com.fongmi.android.tv.player.lyrics.LyricsResult;
-import com.fongmi.android.tv.player.mpv.MpvConfigStore;
 import com.fongmi.android.tv.service.PlaybackService;
 import com.fongmi.android.tv.setting.DanmakuSetting;
 import com.fongmi.android.tv.setting.PlayerButtonSetting;
@@ -270,8 +268,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private Runnable mR3;
     private Runnable mR4;
     private Clock mClock;
-    private MpvPlayer mDiscMenuPlayer;
-    private MpvPlayer mCustomButtonPlayer;
     private final Runnable mCustomButtonStateListener = this::updateCustomButtonStates;
     private final Runnable mDiscMenuStateListener = this::updateDiscMenuTools;
     private PiP mPiP;
@@ -892,96 +888,12 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void setupCustomActionButtons() {
-        ensureCustomButtonContainers();
-        for (View view : mCustomActionViews) {
-            ViewParent parent = view.getParent();
-            if (parent instanceof ViewGroup) ((ViewGroup) parent).removeView(view);
-        }
-        mCustomActionViews.clear();
-        mCustomLeftButtonRow.removeAllViews();
-        mCustomRightButtonRow.removeAllViews();
-        mCustomPortraitButtonRow.removeAllViews();
-        List<MpvConfigStore.CustomButton> buttons = MpvConfigStore.customButtons();
-        boolean landscape = isLand();
-        for (int index = 0; index < buttons.size(); index++) {
-            MpvConfigStore.CustomButton button = buttons.get(index);
-            if (!button.isButtonVisible()) continue;
-            TextView view = new TextView(this);
-            view.setTextSize(13);
-            view.setTextColor(Color.WHITE);
-            view.setGravity(Gravity.CENTER);
-            view.setMinHeight(ResUtil.dp2px(40));
-            view.setMinWidth(ResUtil.dp2px(56));
-            view.setPadding(ResUtil.dp2px(10), ResUtil.dp2px(4), ResUtil.dp2px(10), ResUtil.dp2px(4));
-            view.setBackgroundResource(R.drawable.selector_control_sheet_button);
-            view.setText(button.title);
-            view.setSingleLine(true);
-            view.setMaxWidth(ResUtil.dp2px(144));
-            view.setEllipsize(TextUtils.TruncateAt.END);
-            view.setContentDescription(button.title);
-            view.setTag(button.id);
-            view.setOnClickListener(item -> {
-                player().sendMpvCustomButton(button.id, false);
-                setR1Callback();
-            });
-            view.setOnLongClickListener(item -> {
-                player().sendMpvCustomButton(button.id, true);
-                setR1Callback();
-                return true;
-            });
-            if (Util.isLeanback()) {
-                view.setFocusable(true);
-                view.setFocusableInTouchMode(true);
-            }
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ResUtil.dp2px(40));
-            params.setMargins(ResUtil.dp2px(4), ResUtil.dp2px(2), ResUtil.dp2px(4), ResUtil.dp2px(2));
-            LinearLayout target = landscape
-                    ? (index < 4 ? mCustomLeftButtonRow : mCustomRightButtonRow)
-                    : mCustomPortraitButtonRow;
-            target.addView(view, params);
-            mCustomActionViews.add(view);
-        }
-        updateCustomButtonLayout();
-        updateCustomButtonVisibility();
     }
 
     private void updateCustomButtonStates() {
-        MpvPlayer mpv = service() != null && isOwner()
-                && player().getPlayer() instanceof MpvPlayer active ? active : null;
-        if (mCustomButtonPlayer != mpv) {
-            if (mCustomButtonPlayer != null) mCustomButtonPlayer.removeCustomButtonStateListener(mCustomButtonStateListener);
-            mCustomButtonPlayer = mpv;
-            if (mpv != null) mpv.addCustomButtonStateListener(mCustomButtonStateListener);
-        }
-        for (View view : mCustomActionViews) {
-            view.setSelected(mpv != null && mpv.isCustomButtonActive((String) view.getTag()));
-        }
     }
 
     private void ensureCustomButtonContainers() {
-        if (mCustomLeftButtons != null) return;
-        mCustomLeftButtons = createCustomButtonScroll();
-        mCustomRightButtons = createCustomButtonScroll();
-        mCustomPortraitButtons = createCustomButtonScroll();
-        mCustomLeftButtonRow = createCustomButtonRow(mCustomLeftButtons);
-        mCustomRightButtonRow = createCustomButtonRow(mCustomRightButtons);
-        mCustomPortraitButtonRow = createCustomButtonRow(mCustomPortraitButtons);
-        mCustomRightButtons.setFillViewport(true);
-        mCustomRightButtonRow.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
-        mCustomRightButtonRow.getLayoutParams().width = ViewGroup.LayoutParams.MATCH_PARENT;
-
-        FrameLayout.LayoutParams leftParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.START | Gravity.TOP);
-        FrameLayout.LayoutParams rightParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.TOP);
-        int margin = ResUtil.dp2px(8);
-        leftParams.setMargins(margin, 0, margin, 0);
-        rightParams.setMargins(margin, 0, margin, 0);
-        mBinding.video.addView(mCustomLeftButtons, leftParams);
-        mBinding.video.addView(mCustomRightButtons, rightParams);
-
-        RelativeLayout.LayoutParams portraitParams = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        portraitParams.addRule(RelativeLayout.ABOVE, R.id.bottom);
-        portraitParams.setMargins(margin, 0, margin, ResUtil.dp2px(2));
-        ((ViewGroup) mBinding.control.getRoot()).addView(mCustomPortraitButtons, portraitParams);
     }
 
     private HorizontalScrollView createCustomButtonScroll() {
@@ -1022,12 +934,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void updateCustomButtonVisibility() {
-        updateCustomButtonStates();
-        boolean visible = service() != null && player().isMpv() && isVisible(mBinding.control.getRoot());
-        if (mCustomLeftButtons != null) mCustomLeftButtons.setVisibility(visible && isLand() ? View.VISIBLE : View.GONE);
-        if (mCustomRightButtons != null) mCustomRightButtons.setVisibility(visible && isLand() ? View.VISIBLE : View.GONE);
-        if (mCustomPortraitButtons != null) mCustomPortraitButtons.setVisibility(visible && !isLand() ? View.VISIBLE : View.GONE);
-        updateCustomButtonLayout();
+        if (mCustomPortraitButtons != null) mCustomPortraitButtons.setVisibility(View.GONE);
     }
 
     private void applyActionButtonVisibility() {
@@ -4684,21 +4591,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void updateDiscMenuTools() {
-        updateCustomButtonStates();
-        MpvPlayer mpv = service() != null && isOwner()
-                && player().getPlayer() instanceof MpvPlayer active ? active : null;
-        if (mDiscMenuPlayer != mpv) {
-            if (mDiscMenuPlayer != null) mDiscMenuPlayer.removeDiscMenuStateListener(mDiscMenuStateListener);
-            mDiscMenuPlayer = mpv;
-            if (mpv != null) mpv.addDiscMenuStateListener(mDiscMenuStateListener);
-        }
-        boolean visible = mpv != null && mpv.isDiscMenuActive() && !isLock() && !isInPictureInPictureMode()
-                && !mAudioStageVisible && !isVisible(mBinding.control.getRoot());
-        mBinding.discTools.getRoot().setVisibility(visible ? View.VISIBLE : View.GONE);
-        mBinding.discTools.fullscreen.setImageResource(isFullscreen()
-                ? R.drawable.ic_control_fullscreen_exit : R.drawable.ic_control_fullscreen);
-        mBinding.discTools.fullscreen.setContentDescription(getString(isFullscreen()
-                ? R.string.play_exit_fullscreen : R.string.play_fullscreen));
+        mBinding.discTools.getRoot().setVisibility(View.GONE);
     }
 
     private void setTitleVisible() {

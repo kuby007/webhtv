@@ -323,8 +323,8 @@ public class PlayerOsdController {
         String state = stateText(player.getPlaybackState()) + (player.isLoading() ? " / 正在加载" : "");
         String buffer = join(" / ", formatDuration(player.getBufferedDuration()), player.getBufferedPercentage() > 0 ? player.getBufferedPercentage() + "%" : "");
         // MPV has no Exo analytics snapshot; its buffering tracker belongs to PlayerManager.
-        int rebufferCount = player.isMpv() ? player.getRebufferCount() : snapshot.rebufferCount();
-        long rebufferTotalMs = player.isMpv() ? player.getRebufferTotalMs() : snapshot.rebufferTotalMs();
+        int rebufferCount = snapshot.rebufferCount();
+        long rebufferTotalMs = snapshot.rebufferTotalMs();
         String rebuffer = rebufferCount <= 0 ? "0 次" : rebufferCount + " 次 / " + formatDuration(rebufferTotalMs);
         long stableThroughput = player.getNetworkProtectionStableThroughput();
         long consumption = player.getNetworkProtectionConsumption();
@@ -343,8 +343,8 @@ public class PlayerOsdController {
                 stableThroughput > 0 && consumption > 0 ? "网络余量 " + formatSignedBitrate(stableThroughput - consumption) : "")
                 : join(" / ", "当前 " + emptyDash(lastSpeedText));
         if (TextUtils.isEmpty(network)) network = "待采样";
-        String renderDiagnostics = player.isMpv() ? player.getRenderDiagnostics() : "";
-        String runtimeDiagnostics = player.isMpv() ? player.getRuntimeDiagnostics() : "";
+        String renderDiagnostics = "";
+        String runtimeDiagnostics = "";
         String gpu = join(" / ", getSystemGpuText(),
                 player.getGpuLoadDiagnostics());
         PlaybackPanelResourceMonitor.Snapshot resources = resourceMonitor.snapshot();
@@ -519,7 +519,6 @@ public class PlayerOsdController {
 
     private String getSoftDecodeTuneText(PlayerManager player) {
         if (player.isHardDecode()) return "";
-        if (player.isMpv()) return "软解降负载 MPV hwdec=no";
         return PlaybackPerformanceSetting.isSoftVideoTuneEnabled() ? "软解降负载 EXO跳帧/滤波/低分辨" : "软解降负载 关";
     }
 
@@ -587,11 +586,6 @@ public class PlayerOsdController {
     private String decoderText(PlayerManager player, String decoder) {
         if (!TextUtils.isEmpty(decoder)) return decoder;
         if (player == null) return "";
-        if (player.isMpv()) {
-            String hwdec = player.getVideoPlaybackDetails().hwdecCurrent();
-            if (!TextUtils.isEmpty(hwdec)) return "MPV " + hwdec;
-            return player.isHardDecode() ? "MPV mediacodec" : "MPV ffmpeg";
-        }
         return "";
     }
 

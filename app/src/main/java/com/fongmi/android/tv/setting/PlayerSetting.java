@@ -92,26 +92,23 @@ public class PlayerSetting {
     }
 
     public static boolean isPlayer(int player) {
-        return player == EXO || player == MPV;
+        return player == EXO;
     }
 
     public static int sanitizePlayer(int player) {
-        return player == MPV ? player : EXO;
+        return EXO;
     }
 
     public static int nextPlayer(int player) {
-        return switch (sanitizePlayer(player)) {
-            case EXO -> MPV;
-            default -> EXO;
-        };
+        return EXO;
     }
 
     public static int kernelIndex(int player) {
-        return sanitizePlayer(player) == MPV ? 1 : 0;
+        return 0;
     }
 
     public static int kernelAt(int index) {
-        return index == 1 ? MPV : EXO;
+        return EXO;
     }
 
     public static int getRender() {
@@ -267,14 +264,6 @@ public class PlayerSetting {
     }
 
     /** Whether MPV should enter the HDMV Blu-ray menu instead of the main title. */
-    public static boolean isBlurayMenu() {
-        return Prefers.getBoolean("playback_bluray_menu", false);
-    }
-
-    public static void putBlurayMenu(boolean enabled) {
-        Prefers.put("playback_bluray_menu", enabled);
-    }
-
     public static int getBackground() {
         int stored = Prefers.getInt("background", BackgroundPlaybackPolicy.ON);
         int normalized = BackgroundPlaybackPolicy.normalize(stored);

@@ -18,7 +18,6 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.player.engine.PlayerEngine;
-import com.fongmi.android.tv.player.mpv.MpvAutoOutputPolicy;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -28,6 +27,12 @@ import java.util.List;
 import java.util.Locale;
 
 public final class CodecCapabilityInspector {
+
+    public enum DolbyVisionSupport {
+        UNKNOWN,
+        SUPPORTED,
+        UNSUPPORTED
+    }
 
     public static final int TYPE_ALL = 0;
     public static final int TYPE_VIDEO = 1;
@@ -109,21 +114,21 @@ public final class CodecCapabilityInspector {
      * decoder is not evidence that the device can accept and output the requested DV
      * profile on a direct surface.</p>
      */
-    public static MpvAutoOutputPolicy.DolbyVisionSupport dolbyVisionSupport(
+    public static DolbyVisionSupport dolbyVisionSupport(
             Context context,
             PlayerEngine.VideoPlaybackDetails details,
             Format current,
             int width,
             int height) {
         if (context == null || details == null || details.dolbyVisionProfile() <= 0) {
-            return MpvAutoOutputPolicy.DolbyVisionSupport.UNKNOWN;
+            return DolbyVisionSupport.UNKNOWN;
         }
         return dolbyVisionProfileSupport(context, details.dolbyVisionProfile(),
                 details.dolbyVisionLevel(), details.sourceCodecs(), current,
                 width, height);
     }
 
-    public static MpvAutoOutputPolicy.DolbyVisionSupport dolbyVisionProfileSupport(
+    public static DolbyVisionSupport dolbyVisionProfileSupport(
             Context context,
             int profile,
             int level,
@@ -132,7 +137,7 @@ public final class CodecCapabilityInspector {
             int width,
             int height) {
         if (context == null || profile <= 0) {
-            return MpvAutoOutputPolicy.DolbyVisionSupport.UNKNOWN;
+            return DolbyVisionSupport.UNKNOWN;
         }
         String codecs = sourceCodecs;
         if (TextUtils.isEmpty(codecs) || !codecMatchesProfile(codecs, profile)) {
@@ -157,12 +162,12 @@ public final class CodecCapabilityInspector {
                     MimeTypes.VIDEO_DOLBY_VISION, false, false)) {
                 if (!info.hardwareAccelerated) continue;
                 if (info.isFormatSupported(context, format)) {
-                    return MpvAutoOutputPolicy.DolbyVisionSupport.SUPPORTED;
+                    return DolbyVisionSupport.SUPPORTED;
                 }
             }
-            return MpvAutoOutputPolicy.DolbyVisionSupport.UNSUPPORTED;
+            return DolbyVisionSupport.UNSUPPORTED;
         } catch (Throwable ignored) {
-            return MpvAutoOutputPolicy.DolbyVisionSupport.UNKNOWN;
+            return DolbyVisionSupport.UNKNOWN;
         }
     }
 
@@ -172,9 +177,9 @@ public final class CodecCapabilityInspector {
      * separate from the Dolby Vision MIME query: a vendor may advertise
      * HEVC Main10 while rejecting the Dolby Vision profile or its RPU.
      */
-    public static MpvAutoOutputPolicy.DolbyVisionSupport hevcHdr10Support(
+    public static DolbyVisionSupport hevcHdr10Support(
             Context context, Format current, int width, int height) {
-        if (context == null) return MpvAutoOutputPolicy.DolbyVisionSupport.UNKNOWN;
+        if (context == null) return DolbyVisionSupport.UNKNOWN;
         String codecs = width >= 3840 || height >= 2160
                 ? "hvc1.2.4.L153.B0" : "hvc1.2.4.L120.B0";
         Format.Builder builder = new Format.Builder()
@@ -194,12 +199,12 @@ public final class CodecCapabilityInspector {
                     MimeTypes.VIDEO_H265, false, false)) {
                 if (!info.hardwareAccelerated) continue;
                 if (info.isFormatSupported(context, format)) {
-                    return MpvAutoOutputPolicy.DolbyVisionSupport.SUPPORTED;
+                    return DolbyVisionSupport.SUPPORTED;
                 }
             }
-            return MpvAutoOutputPolicy.DolbyVisionSupport.UNSUPPORTED;
+            return DolbyVisionSupport.UNSUPPORTED;
         } catch (Throwable ignored) {
-            return MpvAutoOutputPolicy.DolbyVisionSupport.UNKNOWN;
+            return DolbyVisionSupport.UNKNOWN;
         }
     }
 

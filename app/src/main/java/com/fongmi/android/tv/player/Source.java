@@ -8,7 +8,6 @@ import com.fongmi.android.tv.bean.Episode;
 import com.fongmi.android.tv.bean.Flag;
 import com.fongmi.android.tv.bean.Result;
 import com.fongmi.android.tv.bean.Vod;
-import com.fongmi.android.tv.player.extractor.MpdEdlResolver;
 import com.fongmi.android.tv.player.extractor.MpdSanitizer;
 import com.fongmi.android.tv.player.extractor.Push;
 import com.fongmi.android.tv.player.extractor.Strm;
@@ -121,11 +120,7 @@ public class Source {
             result.setHeader(headers);
         }
         boolean dash = isDash(result, sanitized);
-        if (playerType == PlayerSetting.MPV && dash) {
-            String resolved = MpdEdlResolver.resolve(sanitized, result.getHeader());
-            if (!resolved.equals(sanitized)) result.setFormat(null);
-            sanitized = resolved;
-        } else if (dash) {
+        if (dash) {
             sanitized = avoidStaleLocalManifest(sanitized);
         }
         return sanitized;

@@ -9,7 +9,6 @@ import com.fongmi.android.tv.remote.RemoteModels.RemoteCommand;
 import com.fongmi.android.tv.remote.RemoteModels.RemoteCommandResult;
 import com.fongmi.android.tv.remote.RemoteModels.RemoteProfile;
 import com.fongmi.android.tv.utils.LoginStateSync;
-import com.fongmi.android.tv.utils.MpvConfigSync;
 import com.fongmi.android.tv.utils.SyncFiles;
 import com.github.catvod.utils.Path;
 import com.google.gson.JsonObject;
@@ -30,7 +29,6 @@ public final class RemoteSyncTransfer {
             String completeUrl = string(payload, "completeUrl");
             if (TextUtils.isEmpty(uploadBase) || TextUtils.isEmpty(completeUrl)) return RemoteCommandResult.failure("Missing sync upload endpoint");
             SyncFiles.Archive archive = null;
-            MpvConfigSync.Archive mpvArchive = null;
             LoginStateSync.Archive loginArchive = null;
             try {
                 String backup = Backup.create(options).toString();
@@ -40,10 +38,6 @@ public final class RemoteSyncTransfer {
                     archive = SyncFiles.createArchive(SyncFiles.getPaths(options));
                     if (archive != null) client.uploadSyncFile(uploadBase, "syncFiles", archive.getFile());
                 }
-                if (options.isMpvConfig()) {
-                    mpvArchive = MpvConfigSync.createArchive();
-                    if (mpvArchive != null) client.uploadSyncFile(uploadBase, MpvConfigSync.PART_NAME, mpvArchive.getFile());
-                }
                 if (options.isLoginState()) {
                     loginArchive = LoginStateSync.createArchive();
                     if (loginArchive != null) client.uploadSyncFile(uploadBase, "loginStateFiles", loginArchive.getFile());
@@ -52,14 +46,13 @@ public final class RemoteSyncTransfer {
                 manifest.add("options", App.gson().toJsonTree(options));
                 manifest.addProperty("syncId", string(payload, "syncId"));
                 manifest.addProperty("syncFiles", archive == null ? 0 : archive.getCount());
-                manifest.addProperty("mpvFiles", mpvArchive == null ? 0 : mpvArchive.getCount());
+                manifest.addProperty("mpvFiles", 0);
                 manifest.addProperty("loginStateFiles", loginArchive == null ? 0 : loginArchive.getCount());
                 client.uploadSyncText(uploadBase, "manifest", App.gson().toJson(manifest));
                 client.completeSync(completeUrl, true, "Export complete", manifest);
                 return RemoteCommandResult.success("Export complete", manifest);
             } finally {
                 if (archive != null) Path.clear(archive.getFile());
-                if (mpvArchive != null) mpvArchive.delete();
                 if (loginArchive != null) Path.clear(loginArchive.getFile());
             }
         } catch (Throwable e) {
@@ -71,7 +64,6 @@ public final class RemoteSyncTransfer {
 
     public static RemoteCommandResult restore(RemoteProfile profile, RemoteCommand command) {
         File syncFiles = null;
-        File mpvConfigFiles = null;
         File loginStateFiles = null;
         try {
             JsonObject payload = payload(command);
@@ -82,16 +74,14 @@ public final class RemoteSyncTransfer {
             if (TextUtils.isEmpty(backup)) throw new IllegalStateException("Missing sync backup");
             String remoteRelay = downloads.has("remoteRelay") ? client.downloadSyncText(downloads.get("remoteRelay").getAsString()) : "";
             if (downloads.has("syncFiles")) syncFiles = client.downloadSyncFile(downloads.get("syncFiles").getAsString(), "webhtv-remote-sync-", ".zip");
-            if (downloads.has(MpvConfigSync.PART_NAME)) mpvConfigFiles = client.downloadSyncFile(downloads.get(MpvConfigSync.PART_NAME).getAsString(), "webhtv-remote-mpv-", ".zip");
             if (downloads.has("loginStateFiles")) loginStateFiles = client.downloadSyncFile(downloads.get("loginStateFiles").getAsString(), "webhtv-remote-login-", ".zip");
             int syncCount = syncFiles == null ? 0 : SyncFiles.restoreArchive(syncFiles);
-            int mpvCount = mpvConfigFiles == null ? 0 : MpvConfigSync.restoreArchive(mpvConfigFiles);
             int loginCount = loginStateFiles == null ? 0 : LoginStateSync.restoreArchive(loginStateFiles);
             Backup.objectFrom(backup).restore(options, true);
             if (options.isRemoteRelay()) RemoteStore.importRelayConfig(remoteRelay);
             JsonObject result = new JsonObject();
             result.addProperty("syncFiles", syncCount);
-            result.addProperty("mpvFiles", mpvCount);
+            result.addProperty("mpvFiles", 0);
             result.addProperty("loginStateFiles", loginCount);
             client.completeSync(string(payload, "completeUrl"), true, "Restore complete", result);
             return RemoteCommandResult.success("Restore complete", result);
@@ -101,7 +91,6 @@ public final class RemoteSyncTransfer {
             return RemoteCommandResult.failure(e.getMessage());
         } finally {
             Path.clear(syncFiles);
-            Path.clear(mpvConfigFiles);
             Path.clear(loginStateFiles);
         }
     }

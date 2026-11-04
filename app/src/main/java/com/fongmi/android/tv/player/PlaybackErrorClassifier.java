@@ -2,7 +2,6 @@ package com.fongmi.android.tv.player;
 
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.StuckPlayerException;
-import androidx.media3.mpvplayer.MpvPlayer;
 
 import java.io.IOException;
 import java.net.ConnectException;
@@ -47,14 +46,6 @@ public final class PlaybackErrorClassifier {
     }
 
     private static Failure classifyStableMarker(String message, int errorCode, PlaybackRoute.Resolution route) {
-        if (startsWith(message, MpvPlayer.ERROR_NETWORK_FAILED)) return failure(Stage.NETWORK_IO, Confidence.CONFIRMED, "mpv-network-marker", errorCode, route);
-        if (startsWith(message, MpvPlayer.ERROR_HLS_PLAYBACK_FAILED)) return failure(Stage.MEDIA_PARSING, Confidence.INFERRED, "mpv-hls-input-marker", errorCode, route);
-        if (startsWith(message, MpvPlayer.ERROR_UNEXPECTED_IMAGE)) return failure(Stage.MEDIA_PARSING, Confidence.CONFIRMED, "mpv-image-marker", errorCode, route);
-        if (startsWith(message, MpvPlayer.ERROR_NO_AV_DATA)) return failure(Stage.MEDIA_PARSING, Confidence.CONFIRMED, "mpv-no-av-marker", errorCode, route);
-        if (startsWith(message, MpvPlayer.ERROR_INVALID_MEDIA_DATA)) return failure(Stage.MEDIA_PARSING, Confidence.CONFIRMED, "mpv-invalid-media-marker", errorCode, route);
-        if (startsWith(message, MpvPlayer.ERROR_DECODE_FAILED)) return failure(Stage.DECODER, Confidence.CONFIRMED, "mpv-decode-marker", errorCode, route);
-        if (startsWith(message, MpvPlayer.ERROR_VIDEO_OUTPUT_FAILED)) return failure(Stage.OUTPUT, Confidence.CONFIRMED, "mpv-video-output-marker", errorCode, route);
-        if (startsWith(message, MpvPlayer.ERROR_DRM_UNSUPPORTED)) return failure(Stage.DRM, Confidence.CONFIRMED, "mpv-drm-marker", errorCode, route);
         return null;
     }
 

@@ -31,7 +31,6 @@ import com.fongmi.android.tv.setting.PlaybackPerformanceOption;
 import com.fongmi.android.tv.setting.PlaybackPerformanceSetting;
 import com.fongmi.android.tv.setting.PlaybackPerformanceUiPolicy;
 import com.fongmi.android.tv.setting.PlaybackProfileMergePolicy;
-import com.fongmi.android.tv.setting.MpvPerformanceSetting;
 import com.fongmi.android.tv.setting.ExoPerformanceSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.PreloadSetting;
@@ -42,7 +41,6 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.textview.MaterialTextView;
 
-import is.xyz.mpv.MPVLib;
 
 public final class PlaybackPerformanceDialog extends DialogFragment {
 
@@ -556,27 +554,11 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
             case PlaybackPerformanceCatalog.SURFACE_FIXED_SIZE -> onOff(PlaybackPerformanceSetting.isSurfaceFixedSizeEnabled());
             case PlaybackPerformanceCatalog.DECODER_FALLBACK -> onOff(PlaybackPerformanceSetting.isDecoderFallbackEnabled());
             case PlaybackPerformanceCatalog.DV7_HDR10_FALLBACK ->
-                    PlayerSetting.getPlayer() == PlayerSetting.MPV
-                            ? PlaybackPerformanceSetting.getMpvDv7HandlingText()
-                            : PlaybackPerformanceSetting.getDv7HandlingText();
+                    PlaybackPerformanceSetting.getDv7HandlingText();
             case PlaybackPerformanceCatalog.SOFT_VIDEO_TUNE -> onOff(PlaybackPerformanceSetting.isSoftVideoTuneEnabled());
             case PlaybackPerformanceCatalog.AUDIO_PASSTHROUGH -> onOff(PlayerSetting.isAudioPassThrough());
-            case PlaybackPerformanceCatalog.MPV_MULTICHANNEL_AUDIO -> MpvPerformanceSetting.getMultichannelAudioText();
-            case PlaybackPerformanceCatalog.PREFER_AAC -> onOff(PlayerSetting.isPreferAAC());
             case PlaybackPerformanceCatalog.AUDIO_SOFT_PREFER -> onOff(PlayerSetting.isAudioPrefer());
             case PlaybackPerformanceCatalog.VIDEO_SOFT_PREFER -> onOff(PlayerSetting.isVideoPrefer());
-            case PlaybackPerformanceCatalog.MPV_OUTPUT -> MpvPerformanceSetting.getOutputModeText();
-            case PlaybackPerformanceCatalog.MPV_RENDER -> mpvRenderText();
-            case PlaybackPerformanceCatalog.MPV_VULKAN_BACKEND -> MpvPerformanceSetting.getVulkanBackendText();
-            case PlaybackPerformanceCatalog.MPV_HWDEC -> MpvPerformanceSetting.getHwdecText();
-            case PlaybackPerformanceCatalog.MPV_FRAME_RATE -> MpvPerformanceSetting.getFrameRateText();
-            case PlaybackPerformanceCatalog.MPV_HLS_BITRATE -> MpvPerformanceSetting.getHlsBitrateText();
-            case PlaybackPerformanceCatalog.MPV_REBUFFER -> formatSeconds(MpvPerformanceSetting.getRebufferMs());
-            case PlaybackPerformanceCatalog.MPV_OPTION_PRIORITY -> MpvPerformanceSetting.getOptionPriorityText();
-            case PlaybackPerformanceCatalog.MPV_SYNC -> MpvPerformanceSetting.getSyncText();
-            case PlaybackPerformanceCatalog.MPV_FRAME_DROP -> MpvPerformanceSetting.getFrameDropText();
-            case PlaybackPerformanceCatalog.MPV_INTERPOLATION -> onOff(MpvPerformanceSetting.isInterpolation());
-            case PlaybackPerformanceCatalog.MPV_SOFT_TUNE -> MpvPerformanceSetting.getSoftTuneText();
             case PlaybackPerformanceCatalog.EXO_FRAME_RATE -> ExoPerformanceSetting.getFrameRateText();
             case PlaybackPerformanceCatalog.EXO_START_BUFFER -> PlaybackPerformanceSetting.getExoStartBufferText();
             case PlaybackPerformanceCatalog.EXO_REBUFFER -> PlaybackPerformanceSetting.getExoRebufferText();
@@ -623,13 +605,6 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
             case PlaybackPerformanceCatalog.SURFACE_FIXED_SIZE -> () -> toggle(PlaybackPerformanceSetting::isSurfaceFixedSizeEnabled, PlaybackPerformanceSetting::putSurfaceFixedSizeEnabled);
             case PlaybackPerformanceCatalog.DECODER_FALLBACK -> () -> toggle(PlaybackPerformanceSetting::isDecoderFallbackEnabled, PlaybackPerformanceSetting::putDecoderFallbackEnabled);
             case PlaybackPerformanceCatalog.DV7_HDR10_FALLBACK -> () -> {
-                if (PlayerSetting.getPlayer() == PlayerSetting.MPV) {
-                    int mode = PlaybackPerformanceSetting.getMpvDv7HandlingMode();
-                    PlaybackPerformanceSetting.putMpvDv7HandlingMode(
-                            PlaybackPerformanceSetting.nextMpvDv7HandlingMode(mode));
-                    refresh();
-                    return;
-                }
                 int mode = PlaybackPerformanceSetting.getDv7HandlingMode();
                 PlaybackPerformanceSetting.putDv7HandlingMode(
                         mode == PlaybackPerformanceSetting.DV7_HANDLING_P81
@@ -639,66 +614,9 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
             };
             case PlaybackPerformanceCatalog.SOFT_VIDEO_TUNE -> () -> toggle(PlaybackPerformanceSetting::isSoftVideoTuneEnabled, PlaybackPerformanceSetting::putSoftVideoTuneEnabled);
             case PlaybackPerformanceCatalog.AUDIO_PASSTHROUGH -> () -> togglePlayer(id, PlayerSetting::isAudioPassThrough, PlayerSetting::putAudioPassThrough);
-            case PlaybackPerformanceCatalog.MPV_MULTICHANNEL_AUDIO -> () -> {
-                MpvPerformanceSetting.putMultichannelAudioMode(
-                        MpvPerformanceSetting.isMultichannelPcm()
-                                ? MpvPerformanceSetting.MULTICHANNEL_STEREO_COMPAT
-                                : MpvPerformanceSetting.MULTICHANNEL_PCM);
-                refresh();
-            };
             case PlaybackPerformanceCatalog.PREFER_AAC -> () -> togglePlayer(id, PlayerSetting::isPreferAAC, PlayerSetting::putPreferAAC);
             case PlaybackPerformanceCatalog.AUDIO_SOFT_PREFER -> () -> togglePlayer(id, PlayerSetting::isAudioPrefer, PlayerSetting::putAudioPrefer);
             case PlaybackPerformanceCatalog.VIDEO_SOFT_PREFER -> () -> togglePlayer(id, PlayerSetting::isVideoPrefer, PlayerSetting::putVideoPrefer);
-            case PlaybackPerformanceCatalog.MPV_OUTPUT -> () -> {
-                MpvPerformanceSetting.putOutputMode((MpvPerformanceSetting.getOutputMode() + 1) % 3);
-                refresh();
-            };
-            case PlaybackPerformanceCatalog.MPV_RENDER -> !isMpvVulkanAvailable() && PlayerSetting.getMpvRender() == PlayerSetting.MPV_RENDER_OPENGL ? null : () -> {
-                PlayerSetting.putMpvRender(PlayerSetting.getMpvRender() == PlayerSetting.MPV_RENDER_OPENGL ? PlayerSetting.MPV_RENDER_VULKAN : PlayerSetting.MPV_RENDER_OPENGL);
-                PlaybackPerformanceSetting.markOverride(PlaybackPerformanceCatalog.MPV_RENDER);
-                refresh();
-            };
-            case PlaybackPerformanceCatalog.MPV_VULKAN_BACKEND -> () -> {
-                MpvPerformanceSetting.putVulkanBackend(
-                        MpvPerformanceSetting.nextVulkanBackend());
-                refresh();
-            };
-            case PlaybackPerformanceCatalog.MPV_HWDEC -> () -> {
-                MpvPerformanceSetting.putHwdecMode((MpvPerformanceSetting.getHwdecMode() + 1) % 3);
-                refresh();
-            };
-            case PlaybackPerformanceCatalog.MPV_FRAME_RATE -> () -> {
-                MpvPerformanceSetting.putFrameRateMode((MpvPerformanceSetting.getFrameRateMode() + 1) % 2);
-                refresh();
-            };
-            case PlaybackPerformanceCatalog.MPV_HLS_BITRATE -> () -> {
-                MpvPerformanceSetting.putHlsBitrateMode((MpvPerformanceSetting.getHlsBitrateMode() + 1) % 4);
-                refresh();
-            };
-            case PlaybackPerformanceCatalog.MPV_REBUFFER -> () -> {
-                MpvPerformanceSetting.putRebufferMs(MpvPerformanceSetting.nextRebufferMs());
-                refresh();
-            };
-            case PlaybackPerformanceCatalog.MPV_OPTION_PRIORITY -> () -> {
-                MpvPerformanceSetting.putOptionPriority(MpvPerformanceSetting.isPerformancePriority() ? MpvPerformanceSetting.PRIORITY_CONFIG : MpvPerformanceSetting.PRIORITY_PERFORMANCE);
-                refresh();
-            };
-            case PlaybackPerformanceCatalog.MPV_SYNC -> () -> {
-                MpvPerformanceSetting.putSyncMode((MpvPerformanceSetting.getSyncMode() + 1) % 2);
-                refresh();
-            };
-            case PlaybackPerformanceCatalog.MPV_FRAME_DROP -> () -> {
-                MpvPerformanceSetting.putFrameDropMode((MpvPerformanceSetting.getFrameDropMode() + 1) % 3);
-                refresh();
-            };
-            case PlaybackPerformanceCatalog.MPV_INTERPOLATION -> () -> {
-                MpvPerformanceSetting.putInterpolation(!MpvPerformanceSetting.isInterpolation());
-                refresh();
-            };
-            case PlaybackPerformanceCatalog.MPV_SOFT_TUNE -> () -> {
-                MpvPerformanceSetting.putSoftTuneMode((MpvPerformanceSetting.getSoftTuneMode() + 1) % 3);
-                refresh();
-            };
             case PlaybackPerformanceCatalog.EXO_FRAME_RATE -> () -> {
                 ExoPerformanceSetting.putFrameRateMode((ExoPerformanceSetting.getFrameRateMode() + 1) % 4);
                 refresh();
@@ -869,22 +787,6 @@ public final class PlaybackPerformanceDialog extends DialogFragment {
 
     private String renderText() {
         return PlayerSetting.getRender() == PlayerSetting.RENDER_SURFACE ? "SurfaceView" : "TextureView";
-    }
-
-    private String mpvRenderText() {
-        boolean automatic = PlaybackPerformanceSetting.isAuto(
-                PlayerSetting.MPV, PlaybackPerformanceCatalog.MPV_RENDER);
-        if (PlayerSetting.getMpvRender() == PlayerSetting.MPV_RENDER_VULKAN) {
-            return isMpvVulkanAvailable()
-                    ? "Vulkan" : "Vulkan（实际回退 OpenGL）";
-        }
-        String value = isMpvVulkanAvailable()
-                ? "OpenGL" : "OpenGL（Vulkan 不可用）";
-        return automatic ? "自动 · " + value : value;
-    }
-
-    private boolean isMpvVulkanAvailable() {
-        return MPVLib.isVulkanRendererAvailable(App.get());
     }
 
     private String onOff(boolean value) {

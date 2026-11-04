@@ -56,7 +56,6 @@ public class PlaybackPerformanceSetting {
     private static final String KEY_DECODER_FALLBACK = "perf_decoder_fallback";
     private static final String KEY_DV7_HDR10_FALLBACK_LEGACY =
             "perf_dv7_hdr10_fallback";
-    private static final String KEY_MPV_DV7_HANDLING = "perf_mpv_dv7_handling";
     private static final String KEY_DV7_HANDLING = "perf_dv7_handling";
     private static final String KEY_SOFT_VIDEO_TUNE = "perf_soft_video_tune";
     private static final String KEY_HIGH_BUFFER = "perf_high_buffer";
@@ -78,7 +77,6 @@ public class PlaybackPerformanceSetting {
         migrateExoLoadControl();
         migrateExoBackBuffer();
         migrateExoRebuffer();
-        migrateMpvRebuffer();
         migrateMpvAutoBaseline();
         // The former recommended-profile rollback must not run after the
         // profile list has been consolidated, otherwise an interrupted old
@@ -117,9 +115,6 @@ public class PlaybackPerformanceSetting {
             Prefers.put("render", PlayerSetting.RENDER_SURFACE);
             Prefers.put("tunnel", false);
             Prefers.put("exo_4k_compat", true);
-        } else if (kernel == PlayerSetting.MPV) {
-            MpvPerformanceSetting.applyRecommended();
-            put(KEY_MPV_DV7_HANDLING, DV7_HANDLING_P81);
         }
     }
 
@@ -131,9 +126,6 @@ public class PlaybackPerformanceSetting {
             Prefers.put("render", PlayerSetting.RENDER_SURFACE);
             Prefers.put("tunnel", false);
             Prefers.put("exo_4k_compat", true);
-        } else if (kernel == PlayerSetting.MPV) {
-            MpvPerformanceSetting.applyAuto();
-            put(KEY_MPV_DV7_HANDLING, DV7_HANDLING_P81);
         }
     }
 
@@ -164,9 +156,6 @@ public class PlaybackPerformanceSetting {
             Prefers.put("render", PlayerSetting.RENDER_SURFACE);
             Prefers.put("tunnel", false);
             Prefers.put("exo_4k_compat", true);
-        } else if (kernel == PlayerSetting.MPV) {
-            MpvPerformanceSetting.applyLightweight();
-            put(KEY_MPV_DV7_HANDLING, DV7_HANDLING_P81);
         }
     }
 
@@ -383,18 +372,11 @@ public class PlaybackPerformanceSetting {
 
     public static boolean isDv7Hdr10FallbackEnabled() {
         ensureInitialized();
-        if (PlayerSetting.getPlayer() == PlayerSetting.MPV) {
-            return getMpvDv7HandlingMode() == DV7_HANDLING_HDR10;
-        }
         return getDv7HandlingMode() == DV7_HANDLING_HDR10;
     }
 
     public static void putDv7Hdr10FallbackEnabled(boolean value) {
-        if (PlayerSetting.getPlayer() == PlayerSetting.MPV) {
-            putMpvDv7HandlingMode(value ? DV7_HANDLING_HDR10 : DV7_HANDLING_P81);
-        } else {
-            putDv7HandlingMode(value ? DV7_HANDLING_HDR10 : DV7_HANDLING_P81);
-        }
+        putDv7HandlingMode(value ? DV7_HANDLING_HDR10 : DV7_HANDLING_P81);
     }
 
     public static int getDv7HandlingMode() {
@@ -419,48 +401,6 @@ public class PlaybackPerformanceSetting {
 
     public static void putDv7HandlingMode(int mode) {
         putCustom(KEY_DV7_HANDLING, clampDv7Handling(mode), PlaybackPerformanceCatalog.DV7_HDR10_FALLBACK);
-    }
-
-    public static int getMpvDv7HandlingMode() {
-        ensureInitialized();
-        if (Prefers.getPrefers().contains(KEY_MPV_DV7_HANDLING))
-            return clampMpvDv7Handling(Prefers.getInt(KEY_MPV_DV7_HANDLING, DV7_HANDLING_P81));
-        if (Prefers.getPrefers().contains(KEY_DV7_HDR10_FALLBACK_LEGACY)) {
-            return Prefers.getBoolean(KEY_DV7_HDR10_FALLBACK_LEGACY, true)
-                    ? DV7_HANDLING_HDR10 : DV7_HANDLING_P81;
-        }
-        return DV7_HANDLING_P81;
-    }
-
-    public static void putMpvDv7HandlingMode(int mode) {
-        putCustom(KEY_MPV_DV7_HANDLING, clampMpvDv7Handling(mode),
-                PlaybackPerformanceCatalog.DV7_HDR10_FALLBACK);
-    }
-
-    public static String getMpvDv7HandlingText() {
-        return mpvDv7HandlingText(getMpvDv7HandlingMode());
-    }
-
-    static String mpvDv7HandlingText(int mode) {
-        return switch (clampMpvDv7Handling(mode)) {
-            case DV7_HANDLING_HDR10 -> "降级HDR10";
-            case DV7_HANDLING_FEL -> "FEL 双层重建";
-            default -> "升级P8.1";
-        };
-    }
-
-    public static int nextMpvDv7HandlingMode(int mode) {
-        return (clampMpvDv7Handling(mode) + 1) % 3;
-    }
-
-    public static String getMpvDv7HandlingOption() {
-        return switch (getMpvDv7HandlingMode()) {
-            case DV7_HANDLING_HDR10 -> "hdr10";
-            // FEL needs the original BL, EL and RPU; it must not run P8.1's
-            // destructive enhancement-layer filter.
-            case DV7_HANDLING_FEL -> "preserve";
-            default -> "p81";
-        };
     }
 
     public static boolean isSoftVideoTuneEnabled() {
@@ -573,10 +513,6 @@ public class PlaybackPerformanceSetting {
         return mode == DV7_HANDLING_HDR10 ? DV7_HANDLING_HDR10 : DV7_HANDLING_P81;
     }
 
-    static int clampMpvDv7Handling(int mode) {
-        return mode == DV7_HANDLING_FEL ? DV7_HANDLING_FEL : clampDv7Handling(mode);
-    }
-
     private static void put(String key, boolean value) {
         Prefers.put(key, value);
     }
@@ -636,9 +572,7 @@ public class PlaybackPerformanceSetting {
     private static void migrateBufferWatermarks() {
         if (Prefers.getBoolean(KEY_BUFFER_WATERMARKS_MIGRATED)) return;
         int exoProfile = clampProfile(Prefers.getInt(profileKey(PlayerSetting.EXO), PROFILE_RECOMMENDED));
-        int mpvProfile = clampProfile(Prefers.getInt(profileKey(PlayerSetting.MPV), PROFILE_RECOMMENDED));
         if (exoProfile != PROFILE_CUSTOM) ExoPerformanceSetting.applyRebufferPreset(exoProfile);
-        if (mpvProfile != PROFILE_CUSTOM) MpvPerformanceSetting.applyRebufferPreset(mpvProfile);
         Prefers.put(KEY_BUFFER_WATERMARKS_MIGRATED, true);
     }
 
@@ -699,17 +633,6 @@ public class PlaybackPerformanceSetting {
     }
 
     static boolean shouldMigrateExoRebuffer(int profile) {
-        return clampProfile(profile) != PROFILE_CUSTOM;
-    }
-
-    private static void migrateMpvRebuffer() {
-        if (Prefers.getBoolean(KEY_MPV_REBUFFER_MIGRATED)) return;
-        int profile = clampProfile(Prefers.getInt(profileKey(PlayerSetting.MPV), PROFILE_RECOMMENDED));
-        if (shouldMigrateMpvRebuffer(profile)) MpvPerformanceSetting.applyRebufferPreset(profile);
-        Prefers.put(KEY_MPV_REBUFFER_MIGRATED, true);
-    }
-
-    static boolean shouldMigrateMpvRebuffer(int profile) {
         return clampProfile(profile) != PROFILE_CUSTOM;
     }
 
@@ -936,11 +859,6 @@ public class PlaybackPerformanceSetting {
             else if (profile == PROFILE_LIGHTWEIGHT) ExoPerformanceSetting.applyLightweight();
             else if (profile == PROFILE_AUTO) ExoPerformanceSetting.applyAuto();
             else ExoPerformanceSetting.applyRecommended();
-        } else if (kernel == PlayerSetting.MPV) {
-            if (profile == PROFILE_COMPATIBLE) MpvPerformanceSetting.applyCompatible();
-            else if (profile == PROFILE_LIGHTWEIGHT) MpvPerformanceSetting.applyLightweight();
-            else if (profile == PROFILE_AUTO) MpvPerformanceSetting.applyAuto();
-            else MpvPerformanceSetting.applyRecommended();
         }
     }
 
@@ -1031,7 +949,6 @@ public class PlaybackPerformanceSetting {
     private static String bufferWatermarksText() {
         return switch (PlayerSetting.getPlayer()) {
             case PlayerSetting.EXO -> "\n起播阈值：" + getExoStartBufferText() + "，重缓冲恢复：" + getExoRebufferText();
-            case PlayerSetting.MPV -> "\n参数优先级：" + MpvPerformanceSetting.getOptionPriorityText() + "，重缓冲恢复：" + secondsText(MpvPerformanceSetting.getRebufferMs());
             default -> "";
         };
     }

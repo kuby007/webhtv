@@ -34,19 +34,6 @@ public final class PlaybackPerformanceCatalog {
     public static final String PREFER_AAC = "prefer_aac";
     public static final String AUDIO_SOFT_PREFER = "audio_soft_prefer";
     public static final String VIDEO_SOFT_PREFER = "video_soft_prefer";
-    public static final String MPV_OUTPUT = "mpv_output";
-    public static final String MPV_RENDER = "mpv_render";
-    public static final String MPV_VULKAN_BACKEND = "mpv_vulkan_backend";
-    public static final String MPV_HWDEC = "mpv_hwdec";
-    public static final String MPV_SYNC = "mpv_sync";
-    public static final String MPV_FRAME_DROP = "mpv_frame_drop";
-    public static final String MPV_INTERPOLATION = "mpv_interpolation";
-    public static final String MPV_SOFT_TUNE = "mpv_soft_tune";
-    public static final String MPV_FRAME_RATE = "mpv_frame_rate";
-    public static final String MPV_HLS_BITRATE = "mpv_hls_bitrate";
-    public static final String MPV_REBUFFER = "mpv_rebuffer";
-    public static final String MPV_OPTION_PRIORITY = "mpv_option_priority";
-    public static final String MPV_MULTICHANNEL_AUDIO = "mpv_multichannel_audio";
     public static final String EXO_FRAME_RATE = "exo_frame_rate";
     public static final String EXO_START_BUFFER = "exo_start_buffer";
     public static final String EXO_REBUFFER = "exo_rebuffer";
@@ -78,7 +65,6 @@ public final class PlaybackPerformanceCatalog {
                 "性能配置",
                 profileDescription(kernel, recommendedMerged)));
         if (kernel == PlayerSetting.EXO) addExo(options);
-        else if (kernel == PlayerSetting.MPV) addMpv(options);
         return options;
     }
 
@@ -108,27 +94,6 @@ public final class PlaybackPerformanceCatalog {
         options.add(option(PREFER_AAC, AUDIO, "AAC 优先", "作用：有多条音轨时优先选兼容性更高的 AAC。电视无声、切换音轨失败时建议开启；追求原始多声道/高码率时关闭。代价：可能放弃质量更高的音轨。"));
         options.add(option(AUDIO_SOFT_PREFER, AUDIO, "音频软解优先", "作用：优先用 FFmpeg 解码冷门音频格式。硬解无声或格式不支持时开启；普通设备保持关闭。代价：增加 CPU、功耗，通常不影响视频画面流畅度。"));
         options.add(option(VIDEO_SOFT_PREFER, AUDIO, "视频软解优先", "作用：绕过异常硬件解码器，改用 FFmpeg。仅在硬解花屏/崩溃且分辨率较低时尝试；4K电视不要开启。代价：CPU、发热和掉帧风险显著增加。"));
-    }
-
-    private static void addMpv(List<PlaybackPerformanceOption> options) {
-        options.add(option(MPV_OUTPUT, BASIC, "输出模式", "怎么选：保持“自动”（默认）最省心；电视播放4K且不需要MPV字幕/LUT/shader/滤镜时会在确认设备支持当前视频后自动用“电视直出”，这是当前最低GPU开销、最优先保证流畅的路径。需要MPV完整图像处理选“GPU渲染”；自动判断不正确时可手动选“电视直出”。代价：电视直出不经过OpenGL/Vulkan，MPV原生字幕和GPU滤镜不可用。"));
-        options.add(option(MPV_RENDER, BASIC, "渲染后端", "怎么选：GPU渲染模式先选 OpenGL，兼容性最好；确认设备 Vulkan 驱动稳定且需要 gpu-next/libplacebo 时再选 Vulkan。电视直出时本参数不参与视频输出，切换也不会变快。代价：Vulkan可能更高效，也可能因驱动问题卡顿、黑屏并自动回退OpenGL。"));
-        options.add(option(MPV_VULKAN_BACKEND, BASIC, "Vulkan 视频路径", "怎么选：仅在渲染后端为 Vulkan 且使用 MediaCodec 硬解时生效，默认 direct。direct 直接采样 AHardwareBuffer，转换步骤少；如果设备出现 GPU 负载逐渐升高、卡顿或驱动兼容问题，可改用 legacy。legacy 使用旧版三输出 compute conversion；stable 使用四输出有界 fence 池，适合 direct 不兼容且 legacy 存在同步问题时尝试。选择“播放性能优先”时本选项覆盖 mpv.conf；选择“mpv.conf优先”时，android-vulkan-aimagereader-backend 等同名配置覆盖本选项。切换后需要重新进入播放。"));
-        options.add(option(MPV_HWDEC, BASIC, "硬解路径", "怎么选：保持“自动回退”（默认）；它先试 mediacodec 零拷贝，失败再试兼容复制。电视4K追求最高流畅可选“零拷贝优先”；只有零拷贝黑屏、崩溃或解码异常时选“兼容复制”。代价：兼容复制会复制每帧，4K 10bit内存带宽开销大，可能明显卡顿。"));
-        options.add(option(MPV_FRAME_RATE, BASIC, "帧率匹配", "怎么选：电影、剧集在电视上保持“仅无缝”（默认），可减少24/25fps抖动；切换后黑屏、闪屏或电视刷新率异常时关闭。代价：仅无缝不会强制切换不兼容模式，旧Android自动忽略。"));
-        options.add(option(MPV_OPTION_PRIORITY, BASIC, "参数优先级", "怎么选：普通用户选“播放性能优先”（默认），界面中的缓存、硬解、同步、丢帧和HLS设置才能可靠生效；只有明确维护了mpv.conf并希望同名配置覆盖界面时选“mpv.conf优先”。选错会出现“界面改了但实际被配置文件覆盖”。"));
-        addSharedBuffer(options, false, true);
-        options.add(option(MPV_REBUFFER, BUFFER, "重缓冲恢复", "作用：缓存耗尽后至少重新准备多少秒再继续。自动档默认2秒，轻量档使用3秒；网络反复卡顿可升到5秒，稳定高速网络可用1秒。代价：越高越不易刚恢复又卡住，但每次恢复等待越久。"));
-        options.add(option(MPV_HLS_BITRATE, BUFFER, "HLS码率控制", "怎么选：自动档会用同网络、同真实路径且5分钟内的可信长期吞吐选择起播上限；没有可信历史时先限制到15Mbps。持续吞吐不足、低缓冲并伴随underrun或重缓冲时，最多逐档重载降3次，不会自动升档。手动档仍可固定最高、15Mbps、8Mbps或最低。代价：降档重载会短暂中断，VOD尽量保留位置，直播回默认live edge；清单码率标错时判断仍会失准。"));
-        addPreload(options, true);
-        options.add(option(MPV_SYNC, DECODE, "同步模式", "怎么选：保持“音频同步”（默认），兼容性最好。只有屏幕刷新率与视频不匹配、能感到规律性微抖且未开启音频直通时，才试“显示重采样”。代价：显示重采样会轻微调整音频速度并增加处理，直通音频不适用。"));
-        options.add(option(MPV_FRAME_DROP, DECODE, "丢帧策略", "怎么选：保持“输出丢帧”（默认），跟不上时优先丢渲染帧以维持音画进度；卡顿仍严重可试“解码丢帧”；不要为追求完整画面关闭丢帧，除非设备性能充足。代价：策略越积极，跳帧越明显。"));
-        options.add(option(MPV_INTERPOLATION, DECODE, "平滑运动", "怎么选：默认关闭。只有GPU余量充足、使用GPU渲染＋显示重采样且想改善低帧率运动时才开启；电视4K、HDR、LUT或已经卡顿时必须关闭。代价：会明显增加GPU负载，电视直出时不生效。"));
-        options.add(option(MPV_SOFT_TUNE, DECODE, "软解降负载", "作用：仅软件解码时减少滤波和解码工作。默认“温和”；软解仍掉帧可选“积极”；硬解视频无需靠它提速。代价：模式越积极，细节和画面连续性损失越大。"));
-        options.add(option(DV7_HDR10_FALLBACK, DECODE, "DV7处理", "默认“升级P8.1”和“降级HDR10”保持原有行为：设备能原生播放DV7时优先原生播放，否则转换P8.1或使用HDR10基底层。“FEL 双层重建”仅手动选择后启用：保留BL、EL和RPU，基底层按现有硬解设置解码，增强层使用软件解码，由GPU完成残差重建，不走原生直出。只对DV7生效，普通视频不改变输出路径。该模式会增加CPU/GPU负载，流畅度取决于设备和片源；无增强层的片源不会凭空增加画质。切换后当前播放会按原有设置应用流程重载并保留进度。"));
-        options.add(option(AUDIO_PASSTHROUGH, AUDIO, "音频直通", "怎么选：电视/功放明确支持Dolby、DTS且需要多声道时开启；出现无声、杂音或同步异常立即关闭。代价：压缩音频交给外部设备后，MPV无法完成所有混音和重采样处理。"));
-        options.add(option(MPV_MULTICHANNEL_AUDIO, AUDIO, "非直通多声道", "怎么选：默认“立体声兼容”，电视直出遇到不能直通的多声道音轨时优先切换同语言2.0音轨，性能和设备兼容性最好；选择“多声道 PCM”会保留当前5.1/7.1音轨并由MPV解码输出，可能增加CPU负担，最终声道数仍取决于电视或功放的PCM能力。"));
-        options.add(option(PREFER_AAC, AUDIO, "AAC 优先", "怎么选：高级音轨无声或设备兼容性差时开启；功放支持原始多声道、希望保留最佳音轨时关闭。代价：可能从Dolby/DTS切到质量或声道较低的AAC。"));
     }
 
     private static void addSharedBuffer(List<PlaybackPerformanceOption> options, boolean exo, boolean playCache) {
