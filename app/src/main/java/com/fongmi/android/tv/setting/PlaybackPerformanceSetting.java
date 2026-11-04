@@ -120,8 +120,6 @@ public class PlaybackPerformanceSetting {
         } else if (kernel == PlayerSetting.MPV) {
             MpvPerformanceSetting.applyRecommended();
             put(KEY_MPV_DV7_HANDLING, DV7_HANDLING_P81);
-        } else {
-            IjkPerformanceSetting.applyRecommended();
         }
     }
 
@@ -136,8 +134,6 @@ public class PlaybackPerformanceSetting {
         } else if (kernel == PlayerSetting.MPV) {
             MpvPerformanceSetting.applyAuto();
             put(KEY_MPV_DV7_HANDLING, DV7_HANDLING_P81);
-        } else {
-            IjkPerformanceSetting.applyRecommended();
         }
     }
 
@@ -171,8 +167,6 @@ public class PlaybackPerformanceSetting {
         } else if (kernel == PlayerSetting.MPV) {
             MpvPerformanceSetting.applyLightweight();
             put(KEY_MPV_DV7_HANDLING, DV7_HANDLING_P81);
-        } else {
-            IjkPerformanceSetting.applyLightweight();
         }
     }
 
@@ -495,11 +489,6 @@ public class PlaybackPerformanceSetting {
     public static String getMemoryBufferText() {
         ensureInitialized();
         int kernel = PlayerSetting.getPlayer();
-        if (kernel == PlayerSetting.IJK) {
-            return ijkMemoryBufferText(
-                    displayProfile(kernel, PlaybackPerformanceCatalog.IJK_BUFFER),
-                    IjkPerformanceSetting.getBufferMb());
-        }
         return memoryBufferText(
                 kernel,
                 displayProfile(kernel, PlaybackPerformanceCatalog.BUFFER_BYTES),
@@ -952,10 +941,6 @@ public class PlaybackPerformanceSetting {
             else if (profile == PROFILE_LIGHTWEIGHT) MpvPerformanceSetting.applyLightweight();
             else if (profile == PROFILE_AUTO) MpvPerformanceSetting.applyAuto();
             else MpvPerformanceSetting.applyRecommended();
-        } else {
-            if (profile == PROFILE_COMPATIBLE) IjkPerformanceSetting.applyCompatible();
-            else if (profile == PROFILE_LIGHTWEIGHT) IjkPerformanceSetting.applyLightweight();
-            else IjkPerformanceSetting.applyRecommended();
         }
     }
 

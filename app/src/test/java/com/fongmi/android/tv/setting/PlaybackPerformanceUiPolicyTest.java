@@ -68,14 +68,6 @@ public class PlaybackPerformanceUiPolicyTest {
                         PlaybackPerformanceCatalog.MPV_MULTICHANNEL_AUDIO),
                 ids(PlaybackPerformanceUiPolicy
                         .splitForKernel(PlayerSetting.MPV, false).common()));
-        assertEquals(Set.of(
-                        PlaybackPerformanceCatalog.IJK_SCENE,
-                        PlaybackPerformanceCatalog.IJK_BUFFER,
-                        PlaybackPerformanceCatalog.IJK_FRAME_DROP,
-                        PlaybackPerformanceCatalog.IJK_RTSP_TRANSPORT,
-                        PlaybackPerformanceCatalog.IJK_RECONNECT),
-                ids(PlaybackPerformanceUiPolicy
-                        .splitForKernel(PlayerSetting.IJK, false).common()));
     }
 
     @Test
