@@ -206,7 +206,6 @@ public class PlayerManager implements ParseCallback {
 
     public void release() {
         prepareSeq++;
-        lutApplySeq++;
         prepareTerminalRelease();
         resetNetworkProtectionSession("release");
         clearExoDecoderResourceRecovery(true);
@@ -229,11 +228,6 @@ public class PlayerManager implements ParseCallback {
         player = null;
         videoEffectsActive = false;
         videoEffectsDirty = false;
-        lutAppliedForItem = false;
-        lutApplyInProgress = false;
-        lutPipelineReadyForItem = false;
-        lutPipelinePrepareInProgress = false;
-        lutWarmupReloadPreviewPending = false;
         playbackBufferingTracker.reset();
         playbackTrace.clear();
         lastLoggedRouteTraceId = PlaybackTrace.NONE;
@@ -913,16 +907,11 @@ public class PlayerManager implements ParseCallback {
 
     public void clear() {
         prepareSeq++;
-        lutApplySeq++;
         clearExoDecoderResourceRecovery(true);
         resetNetworkProtectionSession("clear");
         spec = null;
         clearPendingSwitchRestore();
         clearDanmaku("clear");
-        lutAppliedForItem = false;
-        lutApplyInProgress = false;
-        lutPipelineReadyForItem = false;
-        lutPipelinePrepareInProgress = false;
         endPlaybackTelemetrySession("clear");
         playbackBufferingTracker.reset();
         clearPlaybackAutoContext();
@@ -1125,10 +1114,6 @@ public class PlayerManager implements ParseCallback {
         player = engine.rebuild(listener);
         videoEffectsActive = false;
         videoEffectsDirty = false;
-        lutAppliedForItem = false;
-        lutApplyInProgress = false;
-        lutPipelineReadyForItem = false;
-        lutPipelinePrepareInProgress = false;
         callback.onPlayerRebuild(player, resetVideoSurface);
     }
 
@@ -1142,6 +1127,9 @@ public class PlayerManager implements ParseCallback {
             }
             return;
         }
+    }
+
+    private boolean rebuildAndRestartExo(String reason) {
         if (!isExo() || spec == null || TextUtils.isEmpty(spec.getUrl())) {
             return false;
         }

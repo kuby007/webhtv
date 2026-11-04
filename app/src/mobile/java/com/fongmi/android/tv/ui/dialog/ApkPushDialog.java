@@ -104,7 +104,6 @@ public class ApkPushDialog extends BaseBottomSheetDialog implements SyncDeviceAd
     @Override
     protected void initView() {
         Server.get().start();
-        binding.scan.setVisibility(View.GONE);
         binding.recycler.setHasFixedSize(false);
         binding.recycler.addItemDecoration(new SpaceItemDecoration(1, 8));
         binding.recycler.setAdapter(adapter = new SyncDeviceAdapter(this));

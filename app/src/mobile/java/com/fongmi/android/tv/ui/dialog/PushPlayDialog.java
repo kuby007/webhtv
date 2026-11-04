@@ -51,7 +51,6 @@ public class PushPlayDialog extends BaseBottomSheetDialog implements SyncDeviceA
     protected void initView() {
         Server.get().start();
         binding.title.setText(R.string.push_play_select_device);
-        binding.scan.setVisibility(View.GONE);
         binding.recycler.setHasFixedSize(false);
         binding.recycler.addItemDecoration(new SpaceItemDecoration(1, 8));
         binding.recycler.setAdapter(adapter = new SyncDeviceAdapter(this));
