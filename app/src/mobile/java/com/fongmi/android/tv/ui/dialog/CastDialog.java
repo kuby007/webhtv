@@ -26,7 +26,6 @@ import com.fongmi.android.tv.databinding.DialogDeviceBinding;
 import com.fongmi.android.tv.dlna.DLNACast;
 import com.fongmi.android.tv.dlna.DLNACastManager;
 import com.fongmi.android.tv.server.Server;
-import com.fongmi.android.tv.ui.activity.ScanActivity;
 import com.fongmi.android.tv.ui.adapter.DeviceAdapter;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
 import com.fongmi.android.tv.utils.Notify;
@@ -101,7 +100,6 @@ public class CastDialog extends BaseBottomSheetDialog implements DeviceAdapter.O
 
     @Override
     protected void initView() {
-        binding.scan.setVisibility(fm ? View.VISIBLE : View.GONE);
         DLNACastManager.get().init(requireActivity());
         DLNACastManager.get().setDeviceListener(this);
         setRecyclerView();
@@ -110,7 +108,6 @@ public class CastDialog extends BaseBottomSheetDialog implements DeviceAdapter.O
 
     @Override
     protected void initEvent() {
-        binding.scan.setOnClickListener(v -> onScan());
         binding.refresh.setOnClickListener(v -> onRefresh());
     }
 
@@ -130,10 +127,6 @@ public class CastDialog extends BaseBottomSheetDialog implements DeviceAdapter.O
             if (adapter.getItemCount() == 0) onRefresh();
             else DLNACastManager.get().search();
         });
-    }
-
-    private void onScan() {
-        launcher.launch(new Intent(requireActivity(), ScanActivity.class));
     }
 
     private void onRefresh() {
@@ -209,10 +202,6 @@ public class CastDialog extends BaseBottomSheetDialog implements DeviceAdapter.O
         DLNACastManager.get().release(requireActivity());
         scanTask.stop();
     }
-
-    private final ActivityResultLauncher<Intent> launcher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-        if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) scanTask.start(result.getData().getStringExtra("address"));
-    });
 
     public interface Listener {
 

@@ -108,8 +108,6 @@ public final class RemoteTrustDialog {
     private static final int HOME_STATUS_FAILED = 3;
     private static final Object REMOTE_SYNC_LOCK = new Object();
     private static final int REMOTE_SYNC_STEPS = 5;
-    private static WeakReference<FragmentActivity> scanActivity;
-    private static WeakReference<Binding> scanBinding;
     private static WeakReference<FragmentActivity> activeActivity;
     private static WeakReference<Binding> activeBinding;
     private static RemoteSyncUiState remoteSyncState = new RemoteSyncUiState();
@@ -180,7 +178,6 @@ public final class RemoteTrustDialog {
         dialog.setOnDismissListener(d -> {
             if (binding.serverQrDialog != null && binding.serverQrDialog.isShowing()) binding.serverQrDialog.dismiss();
             App.removeCallbacks(binding.detectRetry, binding.deviceRefreshRetry, binding.deviceStatusRefresh, binding.bindCodeRefresh);
-            clearScanTarget(binding);
             clearActive(binding);
         });
         showModal(dialog);
@@ -191,22 +188,6 @@ public final class RemoteTrustDialog {
         Binding binding = activeBinding == null ? null : activeBinding.get();
         if (activity == null || binding == null || TextUtils.isEmpty(serverUrl)) return;
         App.post(() -> applyRelaySetupSaved(activity, binding, serverUrl));
-    }
-
-    public static void onScanResult(String address) {
-        FragmentActivity activity = scanActivity == null ? null : scanActivity.get();
-        Binding binding = scanBinding == null ? null : scanBinding.get();
-        if (activity == null || binding == null || TextUtils.isEmpty(address)) return;
-        clearScanTarget(binding);
-        if (isRemoteTrustSetupUrl(address)) {
-            showSendServerUrlDialog(activity, binding, address);
-            return;
-        }
-        binding.server.setText(address);
-        binding.page = PAGE_SETTINGS;
-        binding.serverEditing = true;
-        render(activity, binding);
-        Notify.show(R.string.remote_trust_scan_filled);
     }
 
     private static Binding build(Context context) {
@@ -448,18 +429,6 @@ public final class RemoteTrustDialog {
         binding.server.setOnClickListener(v -> showKeyboard(activity, binding.server));
     }
 
-    private static void startScan(FragmentActivity activity, Binding binding) {
-        try {
-            Class<?> clazz = Class.forName("com.fongmi.android.tv.ui.activity.ScanActivity");
-            scanActivity = new WeakReference<>(activity);
-            scanBinding = new WeakReference<>(binding);
-            activity.startActivity(new Intent(activity, clazz));
-        } catch (Throwable e) {
-            clearScanTarget(binding);
-            Notify.show(R.string.remote_trust_scan_unavailable);
-        }
-    }
-
     private static boolean isRemoteTrustSetupUrl(String value) {
         try {
             URI uri = URI.create(value.trim());
@@ -522,13 +491,6 @@ public final class RemoteTrustDialog {
         if (window == null) return;
         if (busy) window.setFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE, WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
         else window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
-    }
-
-    private static void clearScanTarget(Binding binding) {
-        Binding current = scanBinding == null ? null : scanBinding.get();
-        if (current != null && current != binding) return;
-        scanActivity = null;
-        scanBinding = null;
     }
 
     private static void clearActive(Binding binding) {
@@ -2956,10 +2918,6 @@ public final class RemoteTrustDialog {
         qr.setOnClickListener(v -> showServerQr((FragmentActivity) context, binding));
         bindAction(binding, qr);
         top.addView(qr, fixed(context, 36, 32));
-        MaterialButton scan = iconButton(context, R.drawable.ic_remote_scan, context.getString(R.string.remote_trust_scan_server));
-        scan.setOnClickListener(v -> startScan((FragmentActivity) context, binding));
-        bindAction(binding, scan);
-        top.addView(scan, fixed(context, 36, 32));
         return top;
     }
 

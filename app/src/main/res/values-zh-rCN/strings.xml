@@ -356,10 +356,7 @@
     <string name="remote_trust_delete_device_message">删除 %1$s 的本机托管数据？</string>
     <string name="remote_trust_delete_device_done">设备托管数据已删除</string>
     <string name="remote_trust_reset_local">重置本机托管数据</string>
-    <string name="remote_trust_scan_server">扫码</string>
-    <string name="remote_trust_scan_unavailable">当前设备不支持扫码</string>
     <string name="remote_trust_server_qr">中转服务二维码</string>
-    <string name="remote_trust_scan_filled">已填入扫码 URL，点击完成后保存。</string>
     <string name="remote_trust_send_server_title">发送中转 URL</string>
     <string name="remote_trust_send_server_hint">保存后会直接写入刚才扫码的那台设备。</string>
     <string name="remote_trust_send_server_save">保存到对方</string>

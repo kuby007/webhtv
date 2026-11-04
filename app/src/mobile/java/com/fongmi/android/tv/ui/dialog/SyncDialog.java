@@ -26,7 +26,6 @@ import com.fongmi.android.tv.bean.Keep;
 import com.fongmi.android.tv.databinding.DialogDeviceBinding;
 import com.fongmi.android.tv.impl.Callback;
 import com.fongmi.android.tv.setting.Setting;
-import com.fongmi.android.tv.ui.activity.ScanActivity;
 import com.fongmi.android.tv.ui.adapter.DeviceAdapter;
 import com.fongmi.android.tv.ui.custom.SpaceItemDecoration;
 import com.fongmi.android.tv.utils.Notify;
@@ -104,7 +103,6 @@ public class SyncDialog extends BaseBottomSheetDialog implements DeviceAdapter.O
     @Override
     protected void initEvent() {
         binding.mode.setOnClickListener(v -> onMode());
-        binding.scan.setOnClickListener(v -> onScan());
         binding.refresh.setOnClickListener(v -> onRefresh());
     }
 
@@ -132,10 +130,6 @@ public class SyncDialog extends BaseBottomSheetDialog implements DeviceAdapter.O
         Setting.putSyncMode(index = index == mode.length() - 1 ? 0 : ++index);
         binding.mode.setImageResource(mode.getResourceId(index, 0));
         binding.mode.setTag(String.valueOf(index));
-    }
-
-    private void onScan() {
-        launcher.launch(new Intent(requireActivity(), ScanActivity.class));
     }
 
     private void onRefresh() {
@@ -196,7 +190,4 @@ public class SyncDialog extends BaseBottomSheetDialog implements DeviceAdapter.O
         scanTask.stop();
     }
 
-    private final ActivityResultLauncher<Intent> launcher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-        if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) scanTask.start(result.getData().getStringExtra("address"));
-    });
 }
