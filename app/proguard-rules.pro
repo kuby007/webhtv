@@ -1,5 +1,10 @@
 # TV
 -keep class androidx.leanback.widget.** { *; }
+
+# py/js 运行时模块：Loader 等类只被 PyLoader/JsLoader 构造引用，发布构建中会被 R8 移除，
+# 导致 BaseLoader 初始化失败、BaseLoader.get() 抛 NoClassDefFoundError（站点注入保存时崩溃）。整包保留。
+-keep class com.fongmi.chaquo.** { *; }
+-keep class com.fongmi.quickjs.** { *; }
 -keep class com.fongmi.quickjs.method.** { *; }
 -keep class com.fongmi.android.tv.bean.** { *; }
 
