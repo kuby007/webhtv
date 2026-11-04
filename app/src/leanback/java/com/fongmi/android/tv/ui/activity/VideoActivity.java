@@ -3462,35 +3462,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         return parts.length == 0 ? value : parts[parts.length - 1].trim();
     }
 
-    private void searchLyrics(String keyword) {
-        searchLyrics(keyword, null, false);
-    }
-
-    private void searchLyrics(String keyword, @Nullable LyricsRequest baseRequest, boolean automatic) {
-        if (mLyrics == null || service() == null) return;
-        setAudioOnly(LyricsController.isAudioOnly(player()));
-        int seq = ++mLyricsSearchSeq;
-        LyricsRequest request = createLyricsSearchRequest(baseRequest, keyword);
-        String cacheKey = request == null ? Objects.toString(keyword, "") : request.signature();
-        if (TextUtils.equals(mLyricsSearchKeyword, cacheKey) && mLyricsSearchResults != null && !mLyricsSearchResults.isEmpty()) {
-            return;
-        }
-        boolean audioContent = shouldUseImmersiveAudio();
-        if (request == null || !audioContent) {
-            return;
-        }
-        if (isLyricsSearchSheetShowing()) {
-            if (!automatic) clearLyricsInlineResults();
-        } else {
-        }
-        mLyrics.search(request, (results, complete) -> showLyricsResults(seq, cacheKey, results, complete));
-    }
-
-    private void clearLyricsInlineResults() {
-        mLyricsSearchResults = null;
-        mLyricsSearchKeyword = "";
-    }
-
     private void clearLyrics() {
         if (mLyrics != null) mLyrics.clear();
     }
@@ -4884,15 +4855,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     @Override
     protected void onDestroy() {
-        if (mCustomButtonPlayer != null) {
-            mCustomButtonPlayer.removeCustomButtonStateListener(mCustomButtonStateListener);
-            mCustomButtonPlayer = null;
-        }
-        if (mDiscMenuPlayer != null) {
-            mDiscMenuPlayer.removeDiscMenuStateListener(mDiscMenuStateListener);
-            mDiscMenuPlayer = null;
-        }
-        mLyricsSearchSeq++;
         mLyricsRefreshSeq++;
         if (mLyrics != null) mLyrics.release();
         mClock.release();
