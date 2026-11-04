@@ -88,7 +88,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
         mBinding.videoDecodeText.setText(getSwitch(PlayerSetting.isVideoPrefer()));
         mBinding.caption.setVisibility(PlayerSetting.hasCaption() ? View.VISIBLE : View.GONE);
         mBinding.osdText.setText(getOsdText(osd = ResUtil.getStringArray(R.array.select_player_osd)));
-        mBinding.kernelText.setText((kernel = ResUtil.getStringArray(R.array.select_player_kernel))[PlayerSetting.getPlayer()]);
+        mBinding.kernelText.setText((kernel = ResUtil.getStringArray(R.array.select_player_kernel))[PlayerSetting.kernelIndex(PlayerSetting.getPlayer())]);
         mBinding.scaleText.setText((scale = ResUtil.getStringArray(R.array.select_scale))[PlayerSetting.getScale()]);
         setMpvRows();
         mBinding.renderText.setText((render = ResUtil.getStringArray(R.array.select_render))[PlayerSetting.getRender()]);
@@ -155,7 +155,7 @@ public class SettingPlayerFragment extends BaseFragment implements UaListener, B
 
     private void onKernel(View view) {
         PlayerKernelDialog.show(this, PlayerSetting.getPlayer(), which -> {
-            mBinding.kernelText.setText(kernel[which]);
+            mBinding.kernelText.setText(kernel[PlayerSetting.kernelIndex(which)]);
             PlayerSetting.putPlayer(which);
             setMpvRows();
             setPerformanceText();

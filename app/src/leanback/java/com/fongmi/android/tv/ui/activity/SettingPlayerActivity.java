@@ -84,7 +84,7 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         mBinding.audioPassThroughText.setText(getSwitch(PlayerSetting.isAudioPassThrough()));
         mBinding.videoDecodeText.setText(getSwitch(PlayerSetting.isVideoPrefer()));
         mBinding.osdText.setText(getOsdText(osd = ResUtil.getStringArray(R.array.select_player_osd)));
-        mBinding.kernelText.setText((kernel = ResUtil.getStringArray(R.array.select_player_kernel))[PlayerSetting.getPlayer()]);
+        mBinding.kernelText.setText((kernel = ResUtil.getStringArray(R.array.select_player_kernel))[PlayerSetting.kernelIndex(PlayerSetting.getPlayer())]);
         mBinding.scaleText.setText((scale = ResUtil.getStringArray(R.array.select_scale))[PlayerSetting.getScale()]);
         setMpvRows();
         mBinding.renderText.setText((render = ResUtil.getStringArray(R.array.select_render))[PlayerSetting.getRender()]);
@@ -153,7 +153,7 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
 
     private void setKernel(View view) {
         PlayerKernelDialog.show(this, PlayerSetting.getPlayer(), index -> {
-            mBinding.kernelText.setText(kernel[index]);
+            mBinding.kernelText.setText(kernel[PlayerSetting.kernelIndex(index)]);
             PlayerSetting.putPlayer(index);
             setMpvRows();
             setPerformanceText();

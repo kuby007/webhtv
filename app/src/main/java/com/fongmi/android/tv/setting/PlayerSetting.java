@@ -92,19 +92,26 @@ public class PlayerSetting {
     }
 
     public static boolean isPlayer(int player) {
-        return player == EXO || player == IJK || player == MPV;
+        return player == EXO || player == MPV;
     }
 
     public static int sanitizePlayer(int player) {
-        return player == IJK || player == MPV ? player : EXO;
+        return player == MPV ? player : EXO;
     }
 
     public static int nextPlayer(int player) {
         return switch (sanitizePlayer(player)) {
-            case EXO -> IJK;
-            case IJK -> MPV;
+            case EXO -> MPV;
             default -> EXO;
         };
+    }
+
+    public static int kernelIndex(int player) {
+        return sanitizePlayer(player) == MPV ? 1 : 0;
+    }
+
+    public static int kernelAt(int index) {
+        return index == 1 ? MPV : EXO;
     }
 
     public static int getRender() {

@@ -47,17 +47,6 @@ public final class PlaybackPerformanceCatalog {
     public static final String MPV_REBUFFER = "mpv_rebuffer";
     public static final String MPV_OPTION_PRIORITY = "mpv_option_priority";
     public static final String MPV_MULTICHANNEL_AUDIO = "mpv_multichannel_audio";
-    public static final String IJK_SCENE = "ijk_scene";
-    public static final String IJK_BUFFER = "ijk_buffer";
-    public static final String IJK_PACKET_BUFFERING = "ijk_packet_buffering";
-    public static final String IJK_WATER = "ijk_water";
-    public static final String IJK_PICTURE_QUEUE = "ijk_picture_queue";
-    public static final String IJK_FRAME_DROP = "ijk_frame_drop";
-    public static final String IJK_ACCURATE_SEEK = "ijk_accurate_seek";
-    public static final String IJK_PROBE = "ijk_probe";
-    public static final String IJK_SOFT_TUNE = "ijk_soft_tune";
-    public static final String IJK_RTSP_TRANSPORT = "ijk_rtsp_transport";
-    public static final String IJK_RECONNECT = "ijk_reconnect";
     public static final String EXO_FRAME_RATE = "exo_frame_rate";
     public static final String EXO_START_BUFFER = "exo_start_buffer";
     public static final String EXO_REBUFFER = "exo_rebuffer";
@@ -90,7 +79,6 @@ public final class PlaybackPerformanceCatalog {
                 profileDescription(kernel, recommendedMerged)));
         if (kernel == PlayerSetting.EXO) addExo(options);
         else if (kernel == PlayerSetting.MPV) addMpv(options);
-        else addIjk(options);
         return options;
     }
 
@@ -141,22 +129,6 @@ public final class PlaybackPerformanceCatalog {
         options.add(option(AUDIO_PASSTHROUGH, AUDIO, "音频直通", "怎么选：电视/功放明确支持Dolby、DTS且需要多声道时开启；出现无声、杂音或同步异常立即关闭。代价：压缩音频交给外部设备后，MPV无法完成所有混音和重采样处理。"));
         options.add(option(MPV_MULTICHANNEL_AUDIO, AUDIO, "非直通多声道", "怎么选：默认“立体声兼容”，电视直出遇到不能直通的多声道音轨时优先切换同语言2.0音轨，性能和设备兼容性最好；选择“多声道 PCM”会保留当前5.1/7.1音轨并由MPV解码输出，可能增加CPU负担，最终声道数仍取决于电视或功放的PCM能力。"));
         options.add(option(PREFER_AAC, AUDIO, "AAC 优先", "怎么选：高级音轨无声或设备兼容性差时开启；功放支持原始多声道、希望保留最佳音轨时关闭。代价：可能从Dolby/DTS切到质量或声道较低的AAC。"));
-    }
-
-    private static void addIjk(List<PlaybackPerformanceOption> options) {
-        options.add(option(IJK_SCENE, BASIC, "场景模式", "怎么选：不确定就选“自动”（默认）；普通影视选“点播”；直播经常缓冲选“直播稳定”；只有网络很好且必须追求低延迟时选“直播低延迟”。代价：稳定模式延迟更高，低延迟模式更容易卡顿。"));
-        options.add(option(IJK_BUFFER, BUFFER, "读包内存上限", "作用：限制IJK native前向读包队列占用的内存，不是磁盘缓存。自动档按码率、场景和内存压力使用4～15MB；自定义可选64/128/256MB，播放或暂停时都会继续读到该上限，容量越大越抗网络抖动，但会增加native内存占用。"));
-        options.add(option(IJK_PACKET_BUFFERING, BUFFER, "数据包队列", "作用：决定数据不足时是否等待内存中的数据包队列恢复。点播和稳定直播保持开启；只为降低直播延迟才关闭。代价：开启会增加延迟，关闭在网络抖动时更容易卡顿或花屏。"));
-        options.add(option(IJK_WATER, BUFFER, "起播与恢复水位", "作用：控制IJK内存队列达到多少数据后开始或恢复播放，不代表磁盘缓存长度。自动档会按点播、直播、低延迟和分片时长在0.1～5秒内调整；手动档网络抖动可选稳定，低延迟直播才选低。"));
-        options.add(option(IJK_PICTURE_QUEUE, BUFFER, "画面队列", "自动档固定3帧，避免高分辨率盲目扩大 native/图形内存；手动档可选3/5/8帧，渲染偶发抖动可尝试5帧。代价：队列越大，内存和直播延迟越高。"));
-        options.add(option(PLAY_CACHE, BUFFER, "HLS 磁盘缓存上限", "作用：限制IJK经HLS代理写入磁盘的数据量。频繁回看或拖动可增大；它与读包内存上限完全独立，不会直接扩大IJK的内存缓冲。"));
-        addPreload(options, true);
-        options.add(option(IJK_FRAME_DROP, DECODE, "丢帧策略", "怎么选：普通播放选“标准”（默认）；低性能设备持续落后时选“积极”；设备性能充足且必须保留每帧才关闭。代价：越积极越能追上进度，但画面跳帧越明显。"));
-        options.add(option(IJK_SOFT_TUNE, DECODE, "软解降负载", "自动档仅在确认实际软解、持续FPS压力和热状态后从关闭分级到温和/积极；手动档可固定选择。代价：越积极越省CPU，但细节和连续性损失越大，参数变化需要重建。"));
-        options.add(option(IJK_ACCURATE_SEEK, DECODE, "精确Seek", "怎么选：默认关闭，拖动可更快恢复；只有必须准确落在目标时间点时开启。代价：需要从关键帧继续解码，拖动等待和CPU占用都会增加，不会改善正常播放流畅度。"));
-        options.add(option(IJK_PROBE, DECODE, "流探测", "怎么选：普通资源保持“系统默认”；起播太慢可试“快速”；漏音轨、格式识别失败或直播信息不全时选“完整”。代价：快速可能误判，完整会延长起播。"));
-        options.add(option(IJK_RTSP_TRANSPORT, DECODE, "RTSP传输", "怎么选：优先TCP（默认），公网和Wi-Fi更稳定；局域网质量很好且必须低延迟时选UDP；不确定可选自动。代价：TCP延迟略高，UDP丢包时会花屏或卡顿。"));
-        options.add(option(IJK_RECONNECT, DECODE, "断线重连", "怎么选：直播和不稳定网络保持开启（默认），短暂断线可自动恢复；需要失败立即返回时关闭。代价：无效地址或服务器故障时，开启会延长最终报错时间。"));
     }
 
     private static void addSharedBuffer(List<PlaybackPerformanceOption> options, boolean exo, boolean playCache) {
