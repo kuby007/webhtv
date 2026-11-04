@@ -1129,32 +1129,6 @@ public class PlayerManager implements ParseCallback {
         }
     }
 
-    private boolean rebuildAndRestartExo(String reason) {
-        if (!isExo() || spec == null || TextUtils.isEmpty(spec.getUrl())) {
-            return false;
-        }
-        long position = Math.max(0, player.getCurrentPosition());
-        float speed = getSpeed();
-        boolean repeat = isRepeatOne();
-        boolean wasPlayWhenReady = player.getPlayWhenReady();
-        prepareSeq++;
-        App.removeCallbacks(runnable);
-        videoSize = null;
-        initTrack = false;
-        rebuildPlayer();
-        playWhenReady = wasPlayWhenReady;
-        applySubtitleStyle();
-        playbackTrace.mark(PlaybackTrace.Stage.PREPARE,
-                "player=" + playerType + " decode=" + engine.getDecode()
-                        + " exo=" + reason);
-        engine.start(spec.checkUa(), position, wasPlayWhenReady);
-        startNativeAudioSession(wasPlayWhenReady);
-        if (speed != 1f) setSpeed(speed);
-        setRepeatOne(repeat);
-        App.post(runnable, Constant.TIMEOUT_PLAY);
-        return true;
-    }
-
     private void restoreTrackSelection(List<Track> tracks) {
         if (tracks != null && !tracks.isEmpty()) engine.setTrack(tracks);
     }
