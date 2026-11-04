@@ -15,8 +15,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.fongmi.android.tv.R;
-import com.fongmi.android.tv.player.mpv.PlaybackRecoveryMonitor;
-import com.fongmi.android.tv.player.mpv.PlaybackRecoveryPolicy;
+import com.fongmi.android.tv.player.PlaybackRecoveryMonitor;
+import com.fongmi.android.tv.player.PlaybackRecoveryPolicy;
 
 /** Deliberately not BaseActivity: this process must never load a player or start servers. */
 public final class PlaybackRecoveryActivity extends Activity {

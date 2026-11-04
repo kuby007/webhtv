@@ -16,7 +16,7 @@ import com.fongmi.android.tv.server.Server;
 import com.fongmi.android.tv.playback.PlaybackRemoteSyncer;
 import com.fongmi.android.tv.player.PlaybackMemoryMonitor;
 import com.fongmi.android.tv.player.PlaybackSystemConditionMonitor;
-import com.fongmi.android.tv.player.mpv.PlaybackRecoveryMonitor;
+import com.fongmi.android.tv.player.PlaybackRecoveryMonitor;
 import com.fongmi.android.tv.remote.RemoteAgent;
 import com.fongmi.android.tv.setting.ProxySetting;
 import com.fongmi.android.tv.setting.Setting;

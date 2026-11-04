@@ -1,4 +1,4 @@
-package com.fongmi.android.tv.player.mpv;
+package com.fongmi.android.tv.player;
 
 /** Pure decisions shared by the watchdog and the separate recovery process. */
 public final class PlaybackRecoveryPolicy {

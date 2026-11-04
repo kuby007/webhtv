@@ -24,8 +24,6 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
-import androidx.media3.mpvplayer.MpvPlayer;
-import androidx.media3.mpvplayer.MpvDiscMenuPolicy;
 import androidx.media3.exoplayer.drm.FrameworkMediaDrm;
 import androidx.media3.session.MediaController;
 import androidx.media3.session.SessionToken;
@@ -48,7 +46,6 @@ import com.fongmi.android.tv.player.exo.ass.ExoAssSession;
 import com.fongmi.android.tv.player.exo.subtitle.ExoSubtitleSession;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.ui.base.BaseActivity;
-import com.fongmi.android.tv.ui.dialog.DiscMenuDialog;
 import com.fongmi.android.tv.ui.custom.CustomSeekView;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.github.catvod.crawler.SpiderDebug;
@@ -187,64 +184,29 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     }
 
     protected boolean dispatchDiscMenuKey(KeyEvent event) {
-        if (mService == null || !isOwner() || event == null) return false;
-        Player active = player().getPlayer();
-        if (!(active instanceof MpvPlayer mpv)) return false;
-        String action = MpvDiscMenuPolicy.keyAction(event.getKeyCode());
-        if (action == null) return false;
-        if (!mpv.isDiscMenuActive()
-                && !(event.getKeyCode() == KeyEvent.KEYCODE_MENU && mpv.isDiscMenuAvailable())) return false;
-        if (event.getAction() != KeyEvent.ACTION_DOWN || event.getRepeatCount() > 0) return true;
-        mpv.sendDiscNav(action);
-        return true;
-    }
-
-    protected boolean hasDiscMenu() {
-        return mService != null && isOwner() && player().getPlayer() instanceof MpvPlayer mpv
-                && mpv.isDiscMenuAvailable();
-    }
-
-    protected boolean hasDiscNavigationTimeline() {
-        return mService != null && isOwner() && player().getPlayer() instanceof MpvPlayer mpv
-                && mpv.hasDiscNavigationTimeline();
-    }
-
-    protected boolean canSavePlaybackHistory(History history) {
-        if (history == null) return false;
-        boolean navigationStarted = mService != null && isOwner()
-                && player().getPlayer() instanceof MpvPlayer mpv
-                && mpv.hasStartedDiscNavigation();
-        return MpvDiscMenuPolicy.canSaveHistory(history.canSave(), navigationStarted);
-    }
-
-    protected void showDiscMenuControls() {
-        if (hasDiscMenu()) DiscMenuDialog.show(this, (MpvPlayer) player().getPlayer());
-    }
-
-    protected void openDiscMenu() {
-        if (hasDiscMenu()) ((MpvPlayer) player().getPlayer()).sendDiscNav("menu");
+        return false;
     }
 
     protected boolean dispatchDiscMenuTouch(MotionEvent event) {
-        if (isLock() || mService == null || !isOwner()) return false;
-        Player active = player().getPlayer();
-        if (!(active instanceof MpvPlayer mpv) || !mpv.isDiscMenuActive()) return false;
-        View surface = getExoView().getVideoSurfaceView();
-        if (surface == null || event.getPointerCount() != 1) return false;
-        int[] origin = new int[2];
-        surface.getLocationOnScreen(origin);
-        int pointerX = Math.round(event.getRawX() - origin[0]);
-        int pointerY = Math.round(event.getRawY() - origin[1]);
-        if (pointerX < 0 || pointerY < 0 || pointerX >= surface.getWidth() || pointerY >= surface.getHeight()) return false;
-        if (event.getActionMasked() == MotionEvent.ACTION_UP
-                && event.getEventTime() - event.getDownTime() >= ViewConfiguration.getLongPressTimeout()) {
-            showDiscMenuControls();
-        } else if (event.getActionMasked() == MotionEvent.ACTION_DOWN
-                || event.getActionMasked() == MotionEvent.ACTION_MOVE
-                || event.getActionMasked() == MotionEvent.ACTION_UP) {
-            mpv.sendDiscNavPointer(pointerX, pointerY, event.getActionMasked() == MotionEvent.ACTION_UP);
-        }
-        return true;
+        return false;
+    }
+
+    protected boolean hasDiscMenu() {
+        return false;
+    }
+
+    protected boolean hasDiscNavigationTimeline() {
+        return false;
+    }
+
+    protected boolean canSavePlaybackHistory(History history) {
+        return history != null && history.canSave();
+    }
+
+    protected void showDiscMenuControls() {
+    }
+
+    protected void openDiscMenu() {
     }
 
     protected void onServiceConnected() {
@@ -305,9 +267,6 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
     }
 
     private int effectiveResizeMode(int resizeMode) {
-        if (mService != null && player().isMpv() && !player().isMpvSurfaceDirect() && resizeMode == AspectRatioFrameLayout.RESIZE_MODE_FIT) {
-            return AspectRatioFrameLayout.RESIZE_MODE_FILL;
-        }
         return resizeMode;
     }
 
@@ -329,9 +288,7 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
 
     protected void startPlayer(String key, Result result, boolean useParse, long timeout,
                                MediaMetadata metadata, long startPositionMs) {
-        if (rejectUnsupportedDrm(key, result)) {
-            return;
-        } else if (result.getDrm() != null && !FrameworkMediaDrm.isCryptoSchemeSupported(result.getDrm().getUUID())) {
+        if (result.getDrm() != null && !FrameworkMediaDrm.isCryptoSchemeSupported(result.getDrm().getUUID())) {
             onError(ResUtil.getString(R.string.error_play_drm));
         } else if (result.hasMsg()) {
             onError(result.getMsg());
@@ -344,17 +301,6 @@ public abstract class PlaybackActivity extends BaseActivity implements MediaCont
             attachSurface();
             player().start(PlaySpec.from(result, key, metadata), timeout, PlayerSetting.isAutoPlay(), startPositionMs);
         }
-    }
-
-    private boolean rejectUnsupportedDrm(String key, Result result) {
-        if (result == null || result.getDrm() == null || !isSelectedMpvPlayer()) return false;
-        if (SpiderDebug.isEnabled()) SpiderDebug.log("playback-flow", "reject drm for mpv key=%s drm=%s", key, result.getDrm().getType());
-        onError(ResUtil.getString(R.string.error_play_mpv_drm_unsupported));
-        return true;
-    }
-
-    private boolean isSelectedMpvPlayer() {
-        return mService != null ? player().isMpv() : PlayerSetting.getPlayer() == PlayerSetting.MPV;
     }
 
     private void bindPlaybackService() {

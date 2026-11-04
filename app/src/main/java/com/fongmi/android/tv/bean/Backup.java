@@ -127,7 +127,6 @@ public class Backup {
             AppDatabase.get().getHistoryDao().insertOrUpdate(getHistory());
         }
         Map<String, ?> prefers = filter(getPrefers(), options);
-        if (options.isMpvConfig()) clearMpvConfigPreferences();
         restorePrefers(prefers, false, false);
         if (options.isConfig() || options.isSpider() || options.isWebHome() || options.isLoginState()) BaseLoader.get().clear();
         if (options.isConfig() || options.isSpider() || options.isWebHome() || options.isLoginState()) reloadConfig();
@@ -184,7 +183,7 @@ public class Backup {
         if ("keyword".equals(key) || "hot".equals(key) || key.startsWith("hot_")) return options.isSearch();
         if ("git_cloud_accounts".equals(key)) return options.isSpider() || options.isSettings() || options.isLoginState();
         if (key.startsWith("login_state_")) return options.isLoginState();
-        if (key.startsWith("mpv_config_")) return options.isMpvConfig();
+        if (key.startsWith("mpv_config_")) return false;
         if (isAppPref(key)) return options.isSettings();
         return options.isSpider();
     }
@@ -212,19 +211,6 @@ public class Backup {
         putPrefers(editor, preserved);
         putPrefers(editor, values);
         editor.commit();
-    }
-
-    private static void clearMpvConfigPreferences() {
-        SharedPreferences preferences = Prefers.getPrefers();
-        SharedPreferences.Editor editor = preferences.edit();
-        boolean changed = false;
-        for (String key : preferences.getAll().keySet()) {
-            if (key.startsWith("mpv_config_")) {
-                editor.remove(key);
-                changed = true;
-            }
-        }
-        if (changed) editor.commit();
     }
 
     private static boolean containsPlaybackPerformanceProfile(

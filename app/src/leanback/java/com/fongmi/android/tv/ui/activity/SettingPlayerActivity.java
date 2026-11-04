@@ -13,7 +13,6 @@ import com.fongmi.android.tv.databinding.ActivitySettingPlayerBinding;
 import com.fongmi.android.tv.impl.BufferListener;
 import com.fongmi.android.tv.impl.SpeedListener;
 import com.fongmi.android.tv.impl.UaListener;
-import com.fongmi.android.tv.player.mpv.MpvConfigStore;
 import com.fongmi.android.tv.setting.PlaybackPerformanceSetting;
 import com.fongmi.android.tv.setting.PlayerButtonSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
@@ -21,7 +20,6 @@ import com.fongmi.android.tv.setting.PreloadSetting;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.ui.base.BaseActivity;
 import com.fongmi.android.tv.ui.dialog.BufferDialog;
-import com.fongmi.android.tv.ui.dialog.MpvConfigDialog;
 import com.fongmi.android.tv.ui.dialog.PlaybackPerformanceDialog;
 import com.fongmi.android.tv.ui.dialog.PlayerOsdDialog;
 import com.fongmi.android.tv.ui.dialog.PlayerButtonConfigDialog;
@@ -86,7 +84,6 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         mBinding.osdText.setText(getOsdText(osd = ResUtil.getStringArray(R.array.select_player_osd)));
         mBinding.kernelText.setText((kernel = ResUtil.getStringArray(R.array.select_player_kernel))[PlayerSetting.kernelIndex(PlayerSetting.getPlayer())]);
         mBinding.scaleText.setText((scale = ResUtil.getStringArray(R.array.select_scale))[PlayerSetting.getScale()]);
-        setMpvRows();
         mBinding.renderText.setText((render = ResUtil.getStringArray(R.array.select_render))[PlayerSetting.getRender()]);
         mBinding.captionText.setText((caption = ResUtil.getStringArray(R.array.select_caption))[PlayerSetting.isCaption() ? 1 : 0]);
         hidePerformanceRows();
@@ -98,11 +95,6 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         mBinding.aac.setOnClickListener(this::setAAC);
         mBinding.kernel.setOnClickListener(this::setKernel);
         mBinding.scale.setOnClickListener(this::setScale);
-        mBinding.mpvConfig.setOnClickListener(view -> MpvConfigDialog.show(this, () -> mBinding.mpvConfigText.setText(MpvConfigStore.summary())));
-        mBinding.blurayMenu.setOnClickListener(view -> {
-            PlayerSetting.putBlurayMenu(!PlayerSetting.isBlurayMenu());
-            mBinding.blurayMenuText.setText(getSwitch(PlayerSetting.isBlurayMenu()));
-        });
         mBinding.osd.setOnClickListener(this::onOsd);
         mBinding.playerButtons.setOnClickListener(view -> PlayerButtonConfigDialog.show(this, this::setPlayerButtonsText));
         mBinding.speed.setOnClickListener(this::onSpeed);
@@ -155,7 +147,6 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         PlayerKernelDialog.show(this, PlayerSetting.getPlayer(), index -> {
             mBinding.kernelText.setText(kernel[PlayerSetting.kernelIndex(index)]);
             PlayerSetting.putPlayer(index);
-            setMpvRows();
             setPerformanceText();
         });
     }
@@ -164,14 +155,6 @@ public class SettingPlayerActivity extends BaseActivity implements UaListener, B
         int index = (PlayerSetting.getScale() + 1) % scale.length;
         mBinding.scaleText.setText(scale[index]);
         PlayerSetting.putScale(index);
-    }
-
-    private void setMpvRows() {
-        boolean visible = PlayerSetting.getPlayer() == PlayerSetting.MPV;
-        mBinding.mpvConfig.setVisibility(visible ? View.VISIBLE : View.GONE);
-        mBinding.blurayMenu.setVisibility(visible ? View.VISIBLE : View.GONE);
-        mBinding.mpvConfigText.setText(MpvConfigStore.summary());
-        mBinding.blurayMenuText.setText(getSwitch(PlayerSetting.isBlurayMenu()));
     }
 
     private void onOsd(View view) {
