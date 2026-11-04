@@ -1267,4 +1267,6 @@
 
     <string name="player_audio_badge_queue">Queue</string>
     <string name="player_audio_repeat">Repeat</string>
+    <string name="lut_close">Close</string>
+    <string name="player_lyrics_search">Search lyrics</string>
 </resources>
