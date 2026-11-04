@@ -46,21 +46,13 @@ final class ExoAudioCodecSelector implements MediaCodecSelector {
         synchronized (cache) {
             List<MediaCodecInfo> cached = cache.get(query);
             if (cached != null) return cached;
-            List<MediaCodecInfo> ordered = requiresFfmpeg(mimeType)
-                    ? List.of()
-                    : orderHardwareFirst(delegate.getDecoderInfos(
-                            mimeType,
-                            requiresSecureDecoder,
-                            requiresTunnelingDecoder));
+            List<MediaCodecInfo> ordered = orderHardwareFirst(delegate.getDecoderInfos(
+                    mimeType,
+                    requiresSecureDecoder,
+                    requiresTunnelingDecoder));
             cache.put(query, ordered);
             return ordered;
         }
-    }
-
-    static boolean requiresFfmpeg(String mimeType) {
-        // The target vendor ALAC codec can report READY without emitting PCM. Keep ALAC on the
-        // bundled FFmpeg renderer so decoder progress and AudioTrack initialization are coupled.
-        return MimeTypes.AUDIO_ALAC.equals(mimeType);
     }
 
     static List<MediaCodecInfo> orderHardwareFirst(List<MediaCodecInfo> infos) {

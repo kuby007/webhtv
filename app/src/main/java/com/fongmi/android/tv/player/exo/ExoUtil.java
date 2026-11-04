@@ -87,8 +87,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.CompatFfmpegAudioRenderer;
-import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.FfmpegVideoRenderer;
 
 public class ExoUtil {
 
@@ -96,9 +94,6 @@ public class ExoUtil {
     private static final long ENHANCED_ADAPT_COOLDOWN_MS = 15_000L;
     private static final int ENHANCED_DROPPED_FRAMES_THRESHOLD = 24;
     private static final int ENHANCED_DROPPED_FRAMES_PER_SECOND_THRESHOLD = 4;
-    private static final int FFMPEG_SKIP_FRAME_NONREF = 8;
-    private static final int FFMPEG_SKIP_LOOP_FILTER_ALL = 48;
-    private static final int FFMPEG_LOWRES_HALF = 1;
     private static volatile EnhancedVideoProfile enhancedVideoProfile;
     private static volatile ExoPlaybackCapability.Report playbackCapabilityReport;
 
@@ -754,7 +749,7 @@ public class ExoUtil {
                 frameSchedulingSettings.decision();
         ExoCompressedAudioDirectPolicy directPolicy = compressedAudioDirectPolicy == null
                 ? new ExoCompressedAudioDirectPolicy(App.get()) : compressedAudioDirectPolicy;
-        DefaultRenderersFactory factory = new FfmpegRenderersFactory(
+        DefaultRenderersFactory factory = new WebhtvRenderersFactory(
                 App.get(),
                 audioRenderMode,
                 videoRenderMode,
@@ -901,7 +896,7 @@ public class ExoUtil {
         return drm == null ? null : new MediaItem.DrmConfiguration.Builder(drm.getUUID()).setMultiSession(!C.CLEARKEY_UUID.equals(drm.getUUID())).setForceDefaultLicenseUri(drm.isForceKey()).setLicenseRequestHeaders(drm.getHeader()).setLicenseUri(drm.getKey()).build();
     }
 
-    private static class FfmpegRenderersFactory extends DefaultRenderersFactory {
+    private static class WebhtvRenderersFactory extends DefaultRenderersFactory {
 
         @Nullable private final ExoDiagnosticCollector diagnostics;
         private final int audioRenderMode;
@@ -916,7 +911,7 @@ public class ExoUtil {
         @Nullable private final ExoDolbyVisionPlaybackState
                 dolbyVisionPlaybackState;
 
-        FfmpegRenderersFactory(
+        WebhtvRenderersFactory(
                 Context context,
                 int audioRenderMode,
                 int videoRenderMode,
@@ -953,18 +948,12 @@ public class ExoUtil {
         protected void buildAudioRenderers(Context context, int extensionRendererMode, MediaCodecSelector mediaCodecSelector, boolean enableDecoderFallback, AudioSink audioSink, Handler eventHandler, AudioRendererEventListener eventListener, ArrayList<Renderer> out) {
             MediaCodecSelector audioCodecSelector =
                     ExoAudioCodecSelector.hardwareFirst(mediaCodecSelector);
-            if (diagnostics != null) audioCodecSelector = ExoDiagnosticCodecAdapter.selector(audioCodecSelector, diagnostics, "audio-hardware-first / ALAC-FFmpeg-policy");
+            if (diagnostics != null) audioCodecSelector = ExoDiagnosticCodecAdapter.selector(audioCodecSelector, diagnostics, "audio-hardware-first");
             // Audio fallback is part of the playback contract. It only runs
             // after decoder initialization fails and does not affect buffers.
             super.buildAudioRenderers(context, audioRenderMode,
                     audioCodecSelector, true, audioSink, eventHandler,
                     eventListener, out);
-            if (audioRenderMode == EXTENSION_RENDERER_MODE_OFF) return;
-            try {
-                out.add(getExtensionRendererIndex(audioRenderMode, audioPrefer, out), new CompatFfmpegAudioRenderer(context, eventHandler, eventListener, audioSink, softVideoTune));
-            } catch (Throwable ignored) {
-                if (diagnostics != null) diagnostics.log.error(diagnostics.log.context(), "audio-extension", "load-renderer", ignored);
-            }
         }
 
         @Override
@@ -1004,18 +993,6 @@ public class ExoUtil {
                         dolbyVisionPlaybackState));
             } catch (Throwable ignored) {
             }
-            // Video decode mode is explicit: hardware mode must never register
-            // a software fallback, including for AVS3. Audio has its own policy.
-            if (videoRenderMode == EXTENSION_RENDERER_MODE_OFF) return;
-            try {
-                out.add(getExtensionRendererIndex(videoRenderMode, videoPrefer, out), buildFfmpegVideoRenderer(allowedVideoJoiningTimeMs, eventHandler, eventListener));
-            } catch (Throwable ignored) {
-            }
-        }
-
-        private FfmpegVideoRenderer buildFfmpegVideoRenderer(long allowedVideoJoiningTimeMs, Handler eventHandler, VideoRendererEventListener eventListener) {
-            if (!softVideoTune) return new FfmpegVideoRenderer(allowedVideoJoiningTimeMs, eventHandler, eventListener, MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
-            return new FfmpegVideoRenderer(allowedVideoJoiningTimeMs, eventHandler, eventListener, MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY, Runtime.getRuntime().availableProcessors(), 4, 4, FFMPEG_SKIP_FRAME_NONREF, FFMPEG_SKIP_LOOP_FILTER_ALL, FFMPEG_LOWRES_HALF);
         }
 
         private MediaCodecSelector getVideoCodecSelector(MediaCodecSelector mediaCodecSelector) {
