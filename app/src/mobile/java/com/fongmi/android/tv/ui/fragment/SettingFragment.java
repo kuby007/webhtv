@@ -251,7 +251,7 @@ public class SettingFragment extends BaseFragment implements ConfigListener, Sit
 
 
     private void onVersion(View view) {
-        AboutDialog.show(requireActivity(), () -> Updater.create().force().start(requireActivity()));
+        AboutDialog.show(requireActivity());
     }
 
     private void setWallDefault(View view) {

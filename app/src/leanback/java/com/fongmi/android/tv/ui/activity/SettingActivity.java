@@ -246,7 +246,7 @@ public class SettingActivity extends BaseActivity implements ConfigListener, Sit
     }
 
     private void onVersion(View view) {
-        AboutDialog.show(this, () -> Updater.create().force().start(this));
+        AboutDialog.show(this);
     }
 
     private void setWallDefault(View view) {
