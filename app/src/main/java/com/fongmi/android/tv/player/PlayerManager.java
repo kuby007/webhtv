@@ -5399,11 +5399,11 @@ public class PlayerManager implements ParseCallback {
         if (engine == null) return false;
         boolean empty = effects == null || effects.isEmpty();
         if (empty && !videoEffectsActive) {
-            if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "skip clear effects reason=%s", reason);
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("effects", "skip clear effects reason=%s", reason);
             return false;
         }
         if (!empty && videoEffectsActive) {
-            if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "reuse active effects reason=%s", reason);
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("effects", "reuse active effects reason=%s", reason);
             return true;
         }
         try {
@@ -5414,10 +5414,10 @@ public class PlayerManager implements ParseCallback {
                 videoEffectsActive = true;
                 videoEffectsDirty = true;
             }
-            if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "set effects=%d reason=%s active=%s dirty=%s", empty ? 0 : effects.size(), reason, videoEffectsActive, videoEffectsDirty);
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("effects", "set effects=%d reason=%s active=%s dirty=%s", empty ? 0 : effects.size(), reason, videoEffectsActive, videoEffectsDirty);
             return true;
         } catch (Throwable e) {
-            if (SpiderDebug.isEnabled()) SpiderDebug.log("lut", "set effects failed reason=%s error=%s", reason, causeChain(e));
+            if (SpiderDebug.isEnabled()) SpiderDebug.log("effects", "set effects failed reason=%s error=%s", reason, causeChain(e));
             return false;
         }
     }

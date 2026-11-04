@@ -653,7 +653,7 @@ public class ExoPlayerEngine implements PlayerEngine {
     public void setVideoEffects(List<Effect> effects) {
         if (SpiderDebug.isEnabled()) {
             Format format = getVideoFormat();
-            SpiderDebug.log("lut-exo", "set effects=%d state=%d position=%d video=%s",
+            SpiderDebug.log("effects-exo", "set effects=%d state=%d position=%d video=%s",
                     effects == null ? 0 : effects.size(),
                     player.getPlaybackState(),
                     player.getCurrentPosition(),
