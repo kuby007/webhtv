@@ -13,8 +13,6 @@ public class PlayerSetting {
     public static final int MPV = 2;
     public static final int RENDER_SURFACE = 0;
     public static final int RENDER_TEXTURE = 1;
-    public static final int MPV_RENDER_OPENGL = 0;
-    public static final int MPV_RENDER_VULKAN = 1;
     public static final int AUDIO_BACKGROUND_ARTWORK = 0;
     public static final int AUDIO_BACKGROUND_DARK_NEON = 1;
     public static final int AUDIO_BACKGROUND_BLACK_GOLD = 2;
@@ -120,15 +118,6 @@ public class PlayerSetting {
         Prefers.put("render", value);
         if (isTunnel() && value == RENDER_TEXTURE) Prefers.put("tunnel", false);
         if (isExoEnhanced() && value == RENDER_TEXTURE) Prefers.put("exo_4k_compat", false);
-    }
-
-    public static int getMpvRender() {
-        int render = Prefers.getInt("mpv_render", MPV_RENDER_OPENGL);
-        return render == MPV_RENDER_VULKAN ? MPV_RENDER_VULKAN : MPV_RENDER_OPENGL;
-    }
-
-    public static void putMpvRender(int render) {
-        Prefers.put("mpv_render", render == MPV_RENDER_VULKAN ? MPV_RENDER_VULKAN : MPV_RENDER_OPENGL);
     }
 
     public static int getPadLiveMode() {

@@ -65,7 +65,6 @@ public class PlaybackPerformanceSetting {
     private static final String KEY_AUTO_OVERRIDES_IJK = "perf_ijk_auto_overrides_v1";
 
     public static void ensureInitialized() {
-        PlaybackExperimentSetting.ensureInitialized();
         if (!Prefers.getPrefers().contains(KEY_INITIALIZED)) {
             applyAutoValues();
             Prefers.put(KEY_INITIALIZED, true);
@@ -721,9 +720,6 @@ public class PlaybackPerformanceSetting {
                 Prefers.put(KEY_PROFILE, PROFILE_AUTO);
             } catch (Throwable ignored) {
             }
-        }
-        if (PlaybackProfileAbSetting.isEnrolled()) {
-            PlaybackProfileAbSetting.putEnrolled(false);
         }
     }
 
