@@ -11,7 +11,6 @@ import android.widget.TextView;
 import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.tv.R;
-import com.fongmi.android.tv.gitcloud.GitCloudAccountStore;
 import com.fongmi.android.tv.playback.ViewingRecordSyncStore;
 import com.fongmi.android.tv.remote.RemoteStore;
 import com.fongmi.android.tv.setting.Setting;
@@ -23,7 +22,6 @@ import com.fongmi.android.tv.ui.base.BaseActivity;
 import com.fongmi.android.tv.ui.dialog.CspWarmupDialog;
 import com.fongmi.android.tv.ui.dialog.CustomCspDialog;
 import com.fongmi.android.tv.ui.dialog.DebugLogDialog;
-import com.fongmi.android.tv.ui.dialog.GitCloudDialog;
 import com.fongmi.android.tv.ui.dialog.LoginStateLearnDialog;
 import com.fongmi.android.tv.ui.dialog.ManagePageDialog;
 import com.fongmi.android.tv.ui.dialog.OneKeySyncDialog;
@@ -81,7 +79,6 @@ public class SettingEnhanceActivity extends BaseActivity {
         mBinding.playbackWebhook.setOnClickListener(view -> ViewingRecordSyncDialog.show(this, this::setText));
         mBinding.managePage.setOnClickListener(view -> ManagePageDialog.show(this));
         mBinding.remoteTrust.setOnClickListener(view -> RemoteTrustDialog.show(this, this::setText));
-        mBinding.gitCloud.setOnClickListener(view -> GitCloudDialog.show(this, this::setText));
         mBinding.shellProxy.setOnClickListener(view -> ShellProxyDialog.show(this, this::setText));
         mBinding.shellProxy.setOnLongClickListener(v -> false);
         mBinding.shellProxyConfig.setVisibility(View.GONE);
@@ -99,7 +96,6 @@ public class SettingEnhanceActivity extends BaseActivity {
         View[] order = {
                 mBinding.customCsp,
                 mBinding.webHomeExtension,
-                mBinding.gitCloud,
                 mBinding.remoteTrust,
                 mBinding.oneKeySync,
                 mBinding.loginState,
@@ -133,7 +129,6 @@ public class SettingEnhanceActivity extends BaseActivity {
         safeSet("playbackWebhook", mBinding.playbackWebhookText, () -> ViewingRecordSyncStore.summary(this));
         safeSet("managePage", mBinding.managePageText, () -> getString(R.string.manage_page_web));
         safeSet("remoteTrust", mBinding.remoteTrustText, () -> RemoteStore.summary(this));
-        safeSet("gitCloud", mBinding.gitCloudText, () -> getString(R.string.git_cloud_account_count, GitCloudAccountStore.list().size()));
         setShellProxyText();
         setCustomCspText();
         safeSet("loginState", mBinding.loginStateText, () -> {

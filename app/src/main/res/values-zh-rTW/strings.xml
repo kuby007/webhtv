@@ -160,7 +160,6 @@
     <string name="setting_manage_page">管理頁面</string>
     <string name="setting_remote_trust">遠程託管</string>
     <string name="setting_git_cloud">Git 雲盤</string>
-    <string name="git_cloud_account_count">帳號 %1$d</string>
     <string name="dialog_cancel">取消</string>
     <string name="dialog_confirm">確認</string>
     <string name="remote_trust_server_url">中轉服務 URL</string>

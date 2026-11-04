@@ -7,7 +7,6 @@ import android.text.TextUtils;
 import android.util.Xml;
 
 import com.fongmi.android.tv.App;
-import com.fongmi.android.tv.gitcloud.secure.GitCloudTokenStore;
 import com.fongmi.android.tv.setting.Setting;
 import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.utils.Path;
@@ -58,8 +57,6 @@ public class LoginStateSync {
     private static final String ROOT_SDCARD = "sdcard";
     private static final String ROOT_APP_NAME = "App 私有目录";
     private static final String ROOT_SDCARD_NAME = "共享存储";
-    private static final String GIT_CLOUD_TOKENS_ENTRY = ROOT_APP + "/git_cloud_tokens.json";
-    private static final String GIT_CLOUD_TOKENS_PREF = ROOT_APP + "/shared_prefs/git_cloud_tokens.xml";
     private static final Set<String> TEXT_EXTENSIONS = new LinkedHashSet<>(Arrays.asList(
             "cfg", "conf", "config", "cookie", "cookies", "css", "csv", "htm", "html", "ini", "js",
             "json", "log", "md", "mjs", "properties", "text", "toml", "ts", "txt", "xml", "yaml", "yml"
@@ -305,8 +302,7 @@ public class LoginStateSync {
 
     public static Archive createArchive() throws IOException {
         List<Entry> entries = selectedEntries();
-        JsonObject gitCloudTokens = GitCloudTokenStore.exportTokens();
-        if (entries.isEmpty() && gitCloudTokens.size() == 0) {
+        if (entries.isEmpty()) {
             SpiderDebug.log("sync", "archive login state skipped reason=no-selected-paths");
             return null;
         }
@@ -317,7 +313,6 @@ public class LoginStateSync {
         try (ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(archive), BUFFER_SIZE))) {
             for (Entry entry : entries) {
                 String path = normalize(entry.path);
-                if (isGitCloudTokenPrefsPath(path)) continue;
                 File file = fileForPath(path);
                 if (!isSyncableFile(path, file)) {
                     SpiderDebug.log("sync", "login state skip path=%s exists=%s file=%s size=%d", path, file.exists(), file.isFile(), file.exists() ? file.length() : 0);
@@ -330,16 +325,6 @@ public class LoginStateSync {
                 zos.closeEntry();
                 count++;
                 size += written;
-            }
-            if (gitCloudTokens.size() > 0) {
-                byte[] data = App.gson().toJson(gitCloudTokens).getBytes(StandardCharsets.UTF_8);
-                ZipEntry zipEntry = new ZipEntry(GIT_CLOUD_TOKENS_ENTRY);
-                zipEntry.setTime(System.currentTimeMillis());
-                zos.putNextEntry(zipEntry);
-                zos.write(data);
-                zos.closeEntry();
-                count++;
-                size += data.length;
             }
         } catch (Throwable e) {
             Path.clear(archive);
@@ -367,16 +352,6 @@ public class LoginStateSync {
                     zis.closeEntry();
                     continue;
                 }
-                if (GIT_CLOUD_TOKENS_ENTRY.equals(path)) {
-                    int restored = restoreGitCloudTokens(readEntry(zis, buffer));
-                    if (restored > 0) count++;
-                    zis.closeEntry();
-                    continue;
-                }
-                if (isGitCloudTokenPrefsPath(path)) {
-                    zis.closeEntry();
-                    continue;
-                }
                 if (isSharedPrefsPath(path)) {
                     int restored = restoreSharedPrefs(path, readEntry(zis, buffer));
                     if (restored > 0) count++;
@@ -400,16 +375,6 @@ public class LoginStateSync {
         }
         SpiderDebug.log("sync", "restore login state count=%d file=%s", count, archive.getAbsolutePath());
         return count;
-    }
-
-    private static int restoreGitCloudTokens(byte[] data) throws IOException {
-        if (data == null || data.length == 0) return 0;
-        try {
-            JsonObject object = App.gson().fromJson(new String(data, StandardCharsets.UTF_8), JsonObject.class);
-            return GitCloudTokenStore.importTokens(object);
-        } catch (Throwable e) {
-            throw new IOException("Git cloud token restore failed", e);
-        }
     }
 
     private static List<Entry> selectedEntries() {
@@ -684,10 +649,6 @@ public class LoginStateSync {
 
     private static boolean isSharedPrefsPath(String path) {
         return !TextUtils.isEmpty(sharedPrefsName(path));
-    }
-
-    private static boolean isGitCloudTokenPrefsPath(String path) {
-        return TextUtils.equals(normalize(path), GIT_CLOUD_TOKENS_PREF);
     }
 
     private static String sharedPrefsName(String path) {
