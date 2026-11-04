@@ -64,8 +64,8 @@ public final class CodecCapabilityDialog {
     private void show() {
         dialog = LightDialog.create(activity, activity.getString(R.string.codec_capability_title), createContent(), activity.getString(R.string.codec_capability_copy), v -> copy(), activity.getString(R.string.dialog_negative), null);
         update(true);
-        dialog.show();
         applySize();
+        dialog.show();
     }
 
     private View createContent() {
