@@ -72,10 +72,6 @@
                     style="@style/ControlSheetButton"
                     android:text="@string/play_timer" />
 
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/karaoke"
-                    style="@style/ControlSheetButton"
-                    android:text="@string/player_karaoke_mode" />
             </androidx.appcompat.widget.LinearLayoutCompat>
 
             <androidx.appcompat.widget.LinearLayoutCompat

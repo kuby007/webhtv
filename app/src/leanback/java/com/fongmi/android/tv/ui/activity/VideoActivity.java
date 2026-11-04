@@ -91,10 +91,6 @@ import com.fongmi.android.tv.playback.PlaybackEventCollector;
 import com.fongmi.android.tv.player.PlayerHelper;
 import com.fongmi.android.tv.player.PlayerManager;
 import com.fongmi.android.tv.player.diagnostic.PanEndpointParser;
-import com.fongmi.android.tv.player.karaoke.KaraokeController;
-import com.fongmi.android.tv.player.karaoke.KaraokePitchTrackGenerator;
-import com.fongmi.android.tv.player.karaoke.KaraokeResult;
-import com.fongmi.android.tv.player.karaoke.KaraokeTrackRepository;
 import com.fongmi.android.tv.player.lyrics.AudioPlaylistStore;
 import com.fongmi.android.tv.player.lyrics.LyricsController;
 import com.fongmi.android.tv.player.lyrics.LyricsLine;
@@ -121,7 +117,6 @@ import com.fongmi.android.tv.ui.custom.CustomMovement;
 import com.fongmi.android.tv.ui.custom.CustomSeekView;
 import com.fongmi.android.tv.ui.custom.FlagSelectionListener;
 import com.fongmi.android.tv.ui.custom.AudioPlayerBackgroundDrawable;
-import com.fongmi.android.tv.ui.custom.KaraokeResultView;
 import com.fongmi.android.tv.ui.custom.PlayerOsdController;
 import com.fongmi.android.tv.ui.dialog.CodecCapabilityDialog;
 import com.fongmi.android.tv.ui.dialog.CastDialog;
@@ -171,12 +166,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private static final long LYRICS_OFFSET_MIN_MS = -5000L;
     private static final long LYRICS_OFFSET_MAX_MS = 5000L;
     private static final long LYRICS_OFFSET_STEP_MS = 500L;
-    private static final long KARAOKE_DELAY_MIN_MS = -1000L;
-    private static final long KARAOKE_DELAY_MAX_MS = 1000L;
-    private static final long KARAOKE_DELAY_STEP_MS = 100L;
     private static final int LYRICS_TAB_LYRICS = 0;
-    private static final int LYRICS_TAB_KARAOKE = 1;
-    private static final int LYRICS_TAB_TRACK = 2;
     private static final int AUDIO_QUEUE_TAB_CURRENT = 0;
     private static final int AUDIO_QUEUE_TAB_SEARCH = 1;
     private static final int SHEET_BUTTON_RADIUS_DP = 6;
@@ -208,17 +198,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private FlagAdapter mFlagAdapter;
     private PartAdapter mPartAdapter;
     private LyricsController mLyrics;
-    private KaraokeController mKaraoke;
     private boolean mAudioStageVisible;
     private boolean mAudioLightEffectAnimated;
-    private boolean mKaraokeResultShown;
-    private boolean mSkipKaraokeTrackAutoLoad;
     private BottomSheetDialog mLyricsSearchDialog;
     private BottomSheetDialog mLyricsResultDialog;
     private Dialog mAudioQueueDialog;
-    private BottomSheetDialog mKaraokePitchDialog;
-    private ProgressBar mKaraokePitchProgress;
-    private TextView mKaraokePitchMessage;
     private RecyclerView mAudioQueueList;
     private AudioQueueAdapter mAudioQueueAdapter;
     private LinearLayout mAudioQueueSearchList;
@@ -299,25 +283,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
 
 
-    private final ActivityResultLauncher<Intent> mKaraokeTrackFile = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null || service() == null) return;
-        String path = FileChooser.getPathFromUri(result.getData().getData());
-        if (TextUtils.isEmpty(path)) {
-            Notify.show(R.string.player_karaoke_track_import_failed);
-            return;
-        }
-        Task.execute(() -> {
-            KaraokeTrackRepository.ImportResult imported;
-            try {
-                File file = new File(path);
-                imported = KaraokeTrackRepository.importFile(player(), file);
-            } catch (Exception e) {
-                imported = KaraokeTrackRepository.ImportResult.fail(e.getMessage());
-            }
-            KaraokeTrackRepository.ImportResult finalImported = imported;
-            App.post(() -> onKaraokeTrackImported(finalImported));
-        });
-    });
 
     public static void push(FragmentActivity activity, String text) {
         if (FileChooser.isValid(activity, Uri.parse(text))) file(activity, FileChooser.getPathFromUri(Uri.parse(text)));
@@ -594,21 +559,12 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void ensureImmersiveAudioControllers() {
-        if (mLyrics != null && mKaraoke != null) return;
+        if (mLyrics != null) return;
         mLyrics = new LyricsController(mBinding.lyrics);
         mLyrics.setSecondaryView(mBinding.audioLyrics);
         mBinding.audioLyrics.setAudioStageMode(true);
         mBinding.audioLyrics.setSeekListener(this::onAudioLyricsSeek);
         mBinding.audioLyrics.setSuppressed(true);
-        mKaraoke = new KaraokeController();
-        mKaraoke.setListener((status, track, sample, snapshot) -> {
-            boolean playing = service() != null && player().isPlaying();
-            mBinding.karaoke.setPlaying(playing);
-            mBinding.audioKaraoke.setPlaying(playing);
-            mBinding.karaoke.setState(status, track, sample, snapshot);
-            mBinding.audioKaraoke.setState(status, track, sample, snapshot);
-            syncKaraokeStageVisibility();
-        });
     }
 
     private void disableLeanbackDesktopLyrics() {
@@ -684,7 +640,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.audioKeepAction.setOnClickListener(view -> onKeep());
         mBinding.audioCastAction.setOnClickListener(view -> onCast());
         mBinding.audioSettingAction.setOnClickListener(view -> onSetting());
-        mBinding.audioKaraokeAction.setOnClickListener(view -> onKaraokeMode());
         mBinding.audioBackgroundAction.setOnClickListener(view -> randomizeAudioBackgroundMix(false));
         mBinding.audioMoreAction.setOnClickListener(view -> onAudioMore());
         mBinding.audioTrackAction.setOnClickListener(view -> onTrack(C.TRACK_TYPE_AUDIO));
@@ -726,7 +681,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private View[] audioStageFocusButtons() {
         return new View[]{
                 mBinding.audioRepeatAction, mBinding.audioPrev, mBinding.audioPlay, mBinding.audioNext, mBinding.audioQueueAction,
-                mBinding.audioLyricsAction, mBinding.audioKaraokeAction, mBinding.audioMoreAction,
+                mBinding.audioLyricsAction, mBinding.audioMoreAction,
                 mBinding.audioCastAction, mBinding.audioKeepAction, mBinding.audioSettingAction, mBinding.audioTrackAction, mBinding.audioSubtitleAction, mBinding.audioInfoAction,
                 mBinding.audioBackgroundAction
         };
@@ -756,7 +711,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private View[] audioStageIconButtons() {
         return new View[]{
                 mBinding.audioRepeatAction, mBinding.audioPrev, mBinding.audioPlay, mBinding.audioNext, mBinding.audioQueueAction,
-                mBinding.audioLyricsAction, mBinding.audioKaraokeAction, mBinding.audioMoreAction
+                mBinding.audioLyricsAction, mBinding.audioMoreAction
         };
     }
 
@@ -809,7 +764,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void setVideoView() {
         mBinding.control.action.danmaku.setVisibility(View.VISIBLE);
         mBinding.control.action.reset.setText(ResUtil.getStringArray(R.array.select_reset)[Setting.getReset()]);
-        mBinding.control.action.karaoke.setVisibility(View.GONE);
         updateImmersiveAudioAction();
         updateAudioStageControls();
         setupActionButtons();
@@ -1140,7 +1094,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         String playFlag = getEpisodePlayFlag(flag, episode);
         String previousEpisodeKey = Objects.toString(mPlaybackEpisodeKey, "");
         mPlaybackEpisodeKey = audioQueueEpisodeKey(episode);
-        mSkipKaraokeTrackAutoLoad = isMusicLike() && !TextUtils.isEmpty(previousEpisodeKey) && !TextUtils.equals(previousEpisodeKey, mPlaybackEpisodeKey);
         SpiderDebug.log("video-flow", "player start key=%s flag=%s episode=%s url=%s", getKey(), playFlag, episode.getName(), episode.getUrl());
         mInlineLyrics = getEpisodeInlineLyrics(episode);
         long step = System.currentTimeMillis();
@@ -1148,7 +1101,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         SpiderDebug.log("video-flow", "player artwork cost=%dms", System.currentTimeMillis() - step);
         step = System.currentTimeMillis();
         clearLyrics();
-        clearKaraokeState();
         SpiderDebug.log("video-flow", "player clear audio state cost=%dms", System.currentTimeMillis() - step);
         step = System.currentTimeMillis();
         if (shouldUseImmersiveAudio()) setAudioStageVisible(true);
@@ -2329,7 +2281,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         BottomSheetDialog dialog = createAudioSheet();
         LinearLayout root = createAudioSheetRoot();
         root.addView(createAudioSheetTitle(getString(R.string.player_audio_more)), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(32)));
-        root.addView(createKaraokeActionGrid(dialog, true, items.toArray(new String[0]), actions.toArray(new Runnable[0]), 3), karaokeActionGridParams(10));
+        root.addView(createSheetActionGrid(dialog, true, items.toArray(new String[0]), actions.toArray(new Runnable[0]), 3), sheetActionGridParams(10));
         dialog.setContentView(root);
         showCompactPlaybackSheet(dialog);
     }
@@ -2368,8 +2320,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
                 },
         };
         root.addView(createAudioSheetTitle(getString(R.string.player_audio_background)), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(32)));
-        gridRef[0] = createKaraokeActionGrid(dialog, true, labels, actions, 2, false);
-        root.addView(gridRef[0], karaokeActionGridParams(10));
+        gridRef[0] = createSheetActionGrid(dialog, true, labels, actions, 2, false);
+        root.addView(gridRef[0], sheetActionGridParams(10));
         dialog.setContentView(root);
         showAudioBackgroundSheet(dialog);
     }
@@ -2448,24 +2400,94 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         setAudioRepeatSelected(player().isRepeatOne());
     }
 
-    private void onKaraokeMode() {
-        showKaraokeModePanel();
+    private LinearLayout createSheetHeader(BottomSheetDialog dialog, String title, Runnable backAction) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        TextView titleView = createAudioSheetTitle(title);
+        row.addView(titleView, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
+        row.addView(createSheetHeaderButton(dialog, getString(R.string.sheet_back), backAction), new LinearLayout.LayoutParams(ResUtil.dp2px(76), ResUtil.dp2px(32)));
+        return row;
     }
 
-    private void setKaraokeMode(boolean enable) {
-        if (PlayerSetting.isKaraokeMode() == enable) return;
-        PlayerSetting.putKaraokeMode(enable);
-        onKaraokeModeChanged();
-        showControl(mBinding.control.action.karaoke);
+    private TextView createSheetHeaderButton(BottomSheetDialog dialog, String label, Runnable action) {
+        TextView view = createAudioSheetText(label, 14, true);
+        view.setGravity(Gravity.CENTER);
+        view.setSingleLine(true);
+        view.setTextColor(0xE6FFFFFF);
+        view.setBackground(audioSheetControlBackground(0x12FFFFFF, 0x24FFFFFF));
+        setAudioSheetFocusable(view);
+        view.setOnClickListener(v -> {
+            dialog.dismiss();
+            action.run();
+        });
+        return view;
     }
 
-    public boolean onKaraokeTrackPanel() {
-        showLyricsSettingsPanel(LYRICS_TAB_TRACK);
-        return true;
+    private LinearLayout createSheetActionGrid(BottomSheetDialog dialog, boolean compact, String[] labels, Runnable[] actions, int columns) {
+        return createSheetActionGrid(dialog, compact, labels, actions, columns, true);
     }
 
-    private void showKaraokeModePanel() {
-        showLyricsSettingsPanel(LYRICS_TAB_LYRICS);
+    private LinearLayout createSheetActionGrid(BottomSheetDialog dialog, boolean compact, String[] labels, Runnable[] actions, int columns, boolean dismissOnClick) {
+        return createSheetActionGrid(dialog, compact, labels, actions, null, columns, dismissOnClick);
+    }
+
+    private LinearLayout createSheetActionGrid(BottomSheetDialog dialog, boolean compact, String[] labels, Runnable[] actions, boolean[] dismissOnClicks, int columns) {
+        return createSheetActionGrid(dialog, compact, labels, actions, dismissOnClicks, columns, true);
+    }
+
+    private LinearLayout createSheetActionGrid(BottomSheetDialog dialog, boolean compact, String[] labels, Runnable[] actions, @Nullable boolean[] dismissOnClicks, int columns, boolean dismissOnClick) {
+        LinearLayout grid = new LinearLayout(this);
+        grid.setOrientation(LinearLayout.VERTICAL);
+        int safeColumns = Math.max(1, columns);
+        for (int i = 0; i < labels.length; i += safeColumns) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            boolean fullRow = !compact && i + 1 == labels.length;
+            for (int j = 0; j < safeColumns; j++) {
+                int index = i + j;
+                if (index >= labels.length) break;
+                boolean dismiss = dismissOnClicks == null || index >= dismissOnClicks.length ? dismissOnClick : dismissOnClicks[index];
+                row.addView(createSheetActionButton(dialog, labels[index], actions[index], compact, dismiss), fullRow ? sheetActionButtonFullParams() : sheetActionButtonParams(j > 0));
+                if (fullRow) break;
+            }
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(compact ? 46 : 48));
+            if (i > 0) rowParams.topMargin = ResUtil.dp2px(8);
+            grid.addView(row, rowParams);
+        }
+        return grid;
+    }
+
+    private TextView createSheetActionButton(BottomSheetDialog dialog, String label, Runnable action, boolean compact, boolean dismissOnClick) {
+        TextView view = createAudioSheetText(label, compact ? 14 : 15, true);
+        view.setGravity(Gravity.CENTER);
+        view.setSingleLine(true);
+        view.setEllipsize(TextUtils.TruncateAt.END);
+        view.setPadding(ResUtil.dp2px(10), 0, ResUtil.dp2px(10), 0);
+        view.setTextColor(0xF2FFFFFF);
+        view.setBackground(audioSheetControlBackground(0x14FFFFFF, 0x22FFFFFF));
+        setAudioSheetFocusable(view);
+        view.setOnClickListener(v -> {
+            if (dismissOnClick) dialog.dismiss();
+            action.run();
+        });
+        return view;
+    }
+
+    private LinearLayout.LayoutParams sheetActionGridParams(int topMarginDp) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.topMargin = ResUtil.dp2px(topMarginDp);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams sheetActionButtonParams(boolean withStartMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1);
+        if (withStartMargin) params.leftMargin = ResUtil.dp2px(10);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams sheetActionButtonFullParams() {
+        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
     }
 
     private void showLyricsSettingsPanel() {
@@ -2483,56 +2505,24 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void renderLyricsSettingsPanel(BottomSheetDialog dialog, LinearLayout root, int selectedTab) {
         while (root.getChildCount() > 1) root.removeViewAt(1);
-        int tab = Math.max(LYRICS_TAB_LYRICS, Math.min(LYRICS_TAB_TRACK, selectedTab));
-        root.addView(createLyricsSettingsTabs(dialog, root, tab), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(34)));
-        if (tab == LYRICS_TAB_KARAOKE) {
-            root.addView(createKaraokeModeHeader(), lyricsSettingRowParams(8, 38));
-            root.addView(createKaraokeDelayControl(), lyricsSettingRowParams(6, 42));
-            root.addView(createKaraokeActionGrid(dialog, true,
-                    new String[]{getString(R.string.player_karaoke_difficulty) + " " + karaokeDifficultyText()},
-                    new Runnable[]{this::showKaraokeDifficultyPanel},
-                    3), karaokeActionGridParams(8));
-        } else if (tab == LYRICS_TAB_TRACK) {
-            root.addView(createKaraokeActionGrid(dialog, true,
-                    new String[]{
-                            getString(R.string.player_karaoke_track_generate_pitch),
-                            getString(R.string.player_karaoke_track_clear),
-                            getString(R.string.player_karaoke_track_search),
-                            getString(R.string.player_karaoke_track_import_file),
-                            getString(R.string.player_karaoke_track_import_url),
-                            getString(R.string.player_karaoke_track_sources),
-                            getKaraokeBasicPitchLabel()
-                    },
-                    new Runnable[]{
-                            this::generateKaraokePitchTrack,
-                            this::clearKaraokeTrackBinding,
-                            this::showKaraokeTrackSearchDialog,
-                            this::chooseKaraokeTrackFile,
-                            this::showKaraokeTrackUrlDialog,
-                            this::showKaraokeTrackSourcesDialog,
-                            this::toggleKaraokeBasicPitchTfliteFromSettings
-                    },
-                    new boolean[]{true, false, true, true, true, true, true},
-                    3), karaokeActionGridParams(8));
-        } else {
-            root.addView(createLyricsOffsetControl(), lyricsSettingRowParams(8, 42));
-            root.addView(createKaraokeActionGrid(dialog, true,
-                    new String[]{
-                            getString(R.string.player_lyrics_rows) + " " + getLyricsRowsText(),
-                            getString(R.string.player_lyrics_size) + " " + lyricsSizeText(),
-                            getString(R.string.player_lyrics_source) + " " + lyricsSourceText(),
-                            getString(R.string.player_lyrics_search),
-                            getString(R.string.player_lyrics_cache) + " " + getString(R.string.player_lyrics_cache_value, LyricsRepository.cacheCount())
-                    },
-                    new Runnable[]{
-                            this::showLyricsRowsPanel,
-                            this::showLyricsSizePanel,
-                            this::showLyricsSourcePanel,
-                            this::openLyricsSearchFromSettings,
-                            this::clearLyricsCacheFromSettings
-                    },
-                    3), karaokeActionGridParams(8));
-        }
+        root.addView(createLyricsSettingsTabs(dialog, root, LYRICS_TAB_LYRICS), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(34)));
+        root.addView(createLyricsOffsetControl(), lyricsSettingRowParams(8, 42));
+        root.addView(createSheetActionGrid(dialog, true,
+                new String[]{
+                        getString(R.string.player_lyrics_rows) + " " + getLyricsRowsText(),
+                        getString(R.string.player_lyrics_size) + " " + lyricsSizeText(),
+                        getString(R.string.player_lyrics_source) + " " + lyricsSourceText(),
+                        getString(R.string.player_lyrics_search),
+                        getString(R.string.player_lyrics_cache) + " " + getString(R.string.player_lyrics_cache_value, LyricsRepository.cacheCount())
+                },
+                new Runnable[]{
+                        this::showLyricsRowsPanel,
+                        this::showLyricsSizePanel,
+                        this::showLyricsSourcePanel,
+                        this::openLyricsSearchFromSettings,
+                        this::clearLyricsCacheFromSettings
+                },
+                3), sheetActionGridParams(8));
     }
 
     private void showLyricsRowsPanel() {
@@ -2559,18 +2549,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         }, LYRICS_TAB_LYRICS);
     }
 
-    private void showKaraokeDifficultyPanel() {
-        showLyricsChoicePanel(getString(R.string.player_karaoke_difficulty), ResUtil.getStringArray(R.array.select_karaoke_difficulty), PlayerSetting.getKaraokeDifficulty(), which -> {
-            PlayerSetting.putKaraokeDifficulty(which);
-            reloadKaraokeTrack();
-        }, LYRICS_TAB_KARAOKE);
-    }
-
     private void showLyricsChoicePanel(String title, String[] items, int selected, LyricsChoiceHandler handler, int returnTab) {
         BottomSheetDialog dialog = createAudioSheet();
         LinearLayout root = createAudioSheetRoot();
-        root.addView(createKaraokeSheetHeader(dialog, title, () -> showLyricsSettingsPanel(returnTab)), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(34)));
-        root.addView(createLyricsChoiceGrid(dialog, items, selected, handler, returnTab), karaokeActionGridParams(8));
+        root.addView(createSheetHeader(dialog, title, () -> showLyricsSettingsPanel(returnTab)), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(34)));
+        root.addView(createLyricsChoiceGrid(dialog, items, selected, handler, returnTab), sheetActionGridParams(8));
         dialog.setContentView(root);
         showLyricsSettingsSheet(dialog);
     }
@@ -2593,7 +2576,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
                 dialog.dismiss();
                 handler.onChoice(index);
                 showLyricsSettingsPanel(returnTab);
-            }), karaokeActionButtonParams(i % columns > 0));
+            }), sheetActionButtonParams(i % columns > 0));
         }
         return grid;
     }
@@ -2604,7 +2587,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private LinearLayout createLyricsSettingsTabs(BottomSheetDialog dialog, LinearLayout root, int selectedTab) {
         return createSegmentedControl(
-                new String[]{getString(R.string.player_audio_badge_lyrics), getString(R.string.player_karaoke_mode), getString(R.string.player_karaoke_track)},
+                new String[]{getString(R.string.player_audio_badge_lyrics)},
                 selectedTab,
                 index -> {
                     if (index == selectedTab) return;
@@ -2629,76 +2612,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(sheet);
         behavior.setPeekHeight(height);
         behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
-    }
-
-    private void showKaraokeTrackAdvancedPanel() {
-        BottomSheetDialog dialog = createAudioSheet();
-        LinearLayout root = createAudioSheetRoot();
-        root.addView(createKaraokeSheetHeader(dialog, getString(R.string.player_karaoke_track_advanced), this::showKaraokeModePanel), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(34)));
-        root.addView(createAudioSheetSection(getString(R.string.player_karaoke_track)), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(40)));
-        root.addView(createKaraokeActionGrid(dialog, true,
-                new String[]{
-                        getKaraokeBasicPitchLabel(),
-                        getString(R.string.player_karaoke_track_search),
-                        getString(R.string.player_karaoke_track_import_file),
-                        getString(R.string.player_karaoke_track_import_url),
-                        getString(R.string.player_karaoke_track_sources)
-                },
-                new Runnable[]{
-                        this::toggleKaraokeBasicPitchTflite,
-                        this::showKaraokeTrackSearchDialog,
-                        this::chooseKaraokeTrackFile,
-                        this::showKaraokeTrackUrlDialog,
-                        this::showKaraokeTrackSourcesDialog
-                },
-                2), karaokeActionGridParams(6));
-        dialog.setContentView(root);
-        showLyricsSettingsSheet(dialog);
-    }
-
-    private String getKaraokeBasicPitchLabel() {
-        return getString(R.string.player_karaoke_track_basic_pitch_tflite, getString(PlayerSetting.isKaraokeBasicPitchTflite() ? R.string.player_karaoke_track_option_enabled : R.string.player_karaoke_track_option_disabled));
-    }
-
-    private void toggleKaraokeBasicPitchTflite() {
-        PlayerSetting.putKaraokeBasicPitchTflite(!PlayerSetting.isKaraokeBasicPitchTflite());
-        showKaraokeTrackAdvancedPanel();
-    }
-
-    private void toggleKaraokeBasicPitchTfliteFromSettings() {
-        PlayerSetting.putKaraokeBasicPitchTflite(!PlayerSetting.isKaraokeBasicPitchTflite());
-        showLyricsSettingsPanel(LYRICS_TAB_TRACK);
-    }
-
-    private void chooseKaraokeTrackFile() {
-        FileChooser.from(mKaraokeTrackFile).show("*/*", new String[]{"text/plain", "audio/midi", "audio/x-midi", "application/octet-stream", "*/*"});
-    }
-
-    private void showKaraokeTrackUrlDialog() {
-        showAudioTextInputSheet(R.string.player_karaoke_track_import_url, R.string.player_karaoke_track_url_hint, "", true, 2,
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS,
-                EditorInfo.IME_ACTION_DONE,
-                this::importKaraokeTrackUrl);
-    }
-
-    private void showKaraokeTrackSourcesDialog() {
-        showAudioTextInputSheet(R.string.player_karaoke_track_sources, R.string.player_karaoke_track_sources_hint, PlayerSetting.getKaraokeGithubSources(), true, 4,
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS | InputType.TYPE_TEXT_FLAG_MULTI_LINE,
-                EditorInfo.IME_ACTION_DONE,
-                this::saveKaraokeTrackSources);
-    }
-
-    private void saveKaraokeTrackSources(String sources) {
-        PlayerSetting.putKaraokeGithubSources(sources);
-        KaraokeTrackRepository.clearSearchCache();
-        Notify.show(R.string.player_karaoke_track_sources_saved);
-    }
-
-    private void showKaraokeTrackSearchDialog() {
-        showAudioTextInputSheet(R.string.player_karaoke_track_search, R.string.player_karaoke_track_keyword, KaraokeTrackRepository.defaultKeyword(player()), false, 1,
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS,
-                EditorInfo.IME_ACTION_SEARCH,
-                this::searchKaraokeTrack);
     }
 
     private void showAudioTextInputSheet(int titleRes, int hintRes, String text, boolean multiLine, int minLines, int inputType, int imeAction, AudioTextInputHandler handler) {
@@ -2750,259 +2663,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private interface AudioTextInputHandler {
         void onSubmit(String text);
-    }
-
-    private void searchKaraokeTrack(String keyword) {
-        if (service() == null || TextUtils.isEmpty(keyword)) return;
-        Notify.show(R.string.player_karaoke_track_searching);
-        KaraokeTrackRepository.search(player(), keyword, results -> {
-            if (results == null || results.isEmpty()) {
-                Notify.show(R.string.player_karaoke_track_not_found);
-                return;
-            }
-            showKaraokeTrackResults(results);
-        });
-    }
-
-    private void generateKaraokeTrack() {
-        if (service() == null || mLyrics == null || !KaraokeTrackRepository.canGenerate(mLyrics.getLines())) {
-            Notify.show(R.string.player_karaoke_track_generate_no_lyrics);
-            return;
-        }
-        onKaraokeTrackGenerated(KaraokeTrackRepository.importGenerated(player(), mLyrics.getLines()));
-    }
-
-    private void onKaraokeTrackGenerated(KaraokeTrackRepository.ImportResult result) {
-        if (result != null && result.isSuccess()) {
-            Notify.show(R.string.player_karaoke_track_generated);
-            applyKaraokeTrackChange(true);
-        } else {
-            String error = result == null ? "" : result.getError();
-            Notify.show(getString(R.string.player_karaoke_track_generate_failed) + (TextUtils.isEmpty(error) ? "" : "\n" + error));
-        }
-    }
-
-    private void generateKaraokePitchTrack() {
-        List<LyricsLine> lines = mLyrics == null ? null : mLyrics.getLines();
-        KaraokeTrackRepository.MediaInput input = service() == null ? null : KaraokeTrackRepository.snapshot(player());
-        if (!KaraokeTrackRepository.canGeneratePitch(input, lines)) {
-            Notify.show(R.string.player_karaoke_track_generate_no_lyrics);
-            return;
-        }
-        showKaraokePitchProgress();
-        Task.execute(() -> {
-            KaraokeTrackRepository.ImportResult result = KaraokeTrackRepository.importGeneratedPitch(input, lines, (percent, stage, elapsedMs, remainingMs) -> App.post(() -> updateKaraokePitchProgress(percent, stage, remainingMs)));
-            App.post(() -> onKaraokePitchTrackGenerated(result));
-        });
-    }
-
-    private void onKaraokePitchTrackGenerated(KaraokeTrackRepository.ImportResult result) {
-        dismissKaraokePitchProgress();
-        if (result != null && result.isSuccess()) {
-            applyKaraokeTrackChange(true);
-            showKaraokePitchResult(R.string.player_karaoke_track_generated_pitch, getString(R.string.player_karaoke_track_generated_pitch_message));
-        } else {
-            String error = result == null ? "" : result.getError();
-            showKaraokePitchResult(R.string.player_karaoke_track_generate_pitch_failed, getString(R.string.player_karaoke_track_generate_pitch_failed_message, TextUtils.isEmpty(error) ? getString(R.string.player_karaoke_track_generate_pitch_failed) : error));
-        }
-    }
-
-    private void showKaraokePitchProgress() {
-        dismissKaraokePitchProgress();
-        if (isFinishing() || isDestroyed()) {
-            Notify.show(R.string.player_karaoke_track_generating_pitch);
-            return;
-        }
-        BottomSheetDialog dialog = createAudioSheet();
-        LinearLayout root = createAudioSheetRoot();
-        root.addView(createAudioSheetTitle(getString(R.string.player_karaoke_track_generating_pitch)), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(32)));
-        TextView message = createAudioSheetText(getString(R.string.player_karaoke_track_generating_pitch_message), 14, false);
-        message.setTextColor(0xCCFFFFFF);
-        message.setGravity(Gravity.CENTER_VERTICAL);
-        root.addView(message, audioSheetTopParams(10, 46));
-        mKaraokePitchMessage = createAudioSheetText("", 15, true);
-        mKaraokePitchMessage.setTextColor(SHEET_TEXT_SECONDARY);
-        mKaraokePitchMessage.setGravity(Gravity.CENTER_VERTICAL);
-        root.addView(mKaraokePitchMessage, audioSheetTopParams(4, 36));
-        mKaraokePitchProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        mKaraokePitchProgress.setIndeterminate(false);
-        mKaraokePitchProgress.setMax(100);
-        mKaraokePitchProgress.setProgressTintList(ColorStateList.valueOf(0xE6FFFFFF));
-        mKaraokePitchProgress.setProgressBackgroundTintList(ColorStateList.valueOf(0x2AFFFFFF));
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(6));
-        params.topMargin = ResUtil.dp2px(8);
-        root.addView(mKaraokePitchProgress, params);
-        dialog.setContentView(root);
-        dialog.setCancelable(false);
-        dialog.setCanceledOnTouchOutside(false);
-        mKaraokePitchDialog = dialog;
-        showAudioSheet(dialog, false);
-        updateKaraokePitchProgress(1, KaraokePitchTrackGenerator.STAGE_PREPARE, -1);
-    }
-
-    private void updateKaraokePitchProgress(int percent, int stage, long remainingMs) {
-        if (mKaraokePitchProgress == null || mKaraokePitchMessage == null) return;
-        int safePercent = Math.max(0, Math.min(100, percent));
-        mKaraokePitchProgress.setProgress(safePercent);
-        mKaraokePitchMessage.setText(getString(R.string.player_karaoke_track_generating_pitch_progress, safePercent, getKaraokePitchStageName(stage), formatKaraokePitchRemaining(remainingMs)));
-    }
-
-    private String getKaraokePitchStageName(int stage) {
-        if (stage == KaraokePitchTrackGenerator.STAGE_DECODE) return getString(R.string.player_karaoke_track_pitch_stage_decode);
-        if (stage == KaraokePitchTrackGenerator.STAGE_ANALYZE) return getString(R.string.player_karaoke_track_pitch_stage_analyze);
-        if (stage == KaraokePitchTrackGenerator.STAGE_WRITE) return getString(R.string.player_karaoke_track_pitch_stage_write);
-        if (stage == KaraokePitchTrackGenerator.STAGE_FINISH) return getString(R.string.player_karaoke_track_pitch_stage_finish);
-        return getString(R.string.player_karaoke_track_pitch_stage_prepare);
-    }
-
-    private String formatKaraokePitchRemaining(long remainingMs) {
-        if (remainingMs <= 0) return getString(R.string.player_karaoke_track_pitch_remaining_unknown);
-        long seconds = Math.max(1, Math.round(remainingMs / 1000.0));
-        if (seconds < 60) return getString(R.string.player_karaoke_track_pitch_remaining_seconds, seconds);
-        return getString(R.string.player_karaoke_track_pitch_remaining_minutes, seconds / 60, seconds % 60);
-    }
-
-    private void dismissKaraokePitchProgress() {
-        if (mKaraokePitchDialog != null) {
-            try {
-                if (mKaraokePitchDialog.isShowing()) mKaraokePitchDialog.dismiss();
-            } catch (Exception ignored) {
-            }
-        }
-        mKaraokePitchDialog = null;
-        mKaraokePitchProgress = null;
-        mKaraokePitchMessage = null;
-    }
-
-    private void showKaraokePitchResult(int title, String message) {
-        if (isFinishing() || isDestroyed()) {
-            Notify.show(message);
-            return;
-        }
-        BottomSheetDialog dialog = createAudioSheet();
-        LinearLayout root = createAudioSheetRoot();
-        root.addView(createAudioSheetTitle(getString(title)), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(32)));
-        TextView text = createAudioSheetText(message, 15, false);
-        text.setTextColor(0xD9FFFFFF);
-        text.setGravity(Gravity.CENTER_VERTICAL);
-        root.addView(text, audioSheetTopParams(12, 58));
-        LinearLayout actions = new LinearLayout(this);
-        actions.setGravity(Gravity.END);
-        actions.addView(createAudioSheetButton(getString(R.string.dialog_positive), true, dialog::dismiss), audioSheetButtonParams(false));
-        root.addView(actions, audioSheetTopParams(12, 44));
-        dialog.setContentView(root);
-        showCompactPlaybackSheet(dialog);
-    }
-
-    private void showKaraokeTrackResults(List<KaraokeTrackRepository.SearchResult> results) {
-        BottomSheetDialog dialog = createAudioSheet();
-        LinearLayout root = createAudioSheetRoot();
-        root.addView(createAudioSheetTitle(getString(R.string.player_karaoke_track_select)), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(32)));
-        ScrollView scroll = new ScrollView(this);
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        scroll.addView(content, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        for (int i = 0; i < results.size(); i++) {
-            KaraokeTrackRepository.SearchResult result = results.get(i);
-            String source = result.getSource() + (result.isLoginRequired() ? getString(R.string.player_karaoke_track_source_login) : "");
-            String label = getString(R.string.player_karaoke_track_result_item, source, result.getArtist(), result.getTitle(), result.getNote());
-            content.addView(createKaraokeTrackResultItem(label, () -> {
-                dialog.dismiss();
-                importKaraokeTrackUrl(result.getUrl());
-            }), audioSheetTopParams(i == 0 ? 8 : 6, 76));
-        }
-        root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, karaokeTrackResultSheetHeight(results.size())));
-        dialog.setContentView(root);
-        showLyricsSettingsSheet(dialog);
-    }
-
-    private void importKaraokeTrackUrl(String url) {
-        if (service() == null || TextUtils.isEmpty(url)) return;
-        KaraokeTrackRepository.importUrl(player(), url, this::onKaraokeTrackImported);
-    }
-
-    private void onKaraokeTrackImported(KaraokeTrackRepository.ImportResult result) {
-        if (result != null && result.isSuccess()) {
-            Notify.show(R.string.player_karaoke_track_imported);
-            applyKaraokeTrackChange(true);
-        } else {
-            String error = result == null ? "" : result.getError();
-            Notify.show(getString(R.string.player_karaoke_track_import_failed) + (TextUtils.isEmpty(error) ? "" : "\n" + error));
-        }
-    }
-
-    private void clearKaraokeTrackBinding() {
-        if (service() == null) return;
-        boolean cleared = KaraokeTrackRepository.clearBinding(player());
-        Notify.show(cleared ? R.string.player_karaoke_track_cleared : R.string.player_karaoke_track_none);
-        applyKaraokeTrackChange(false);
-    }
-
-    private void applyKaraokeTrackChange(boolean enableMode) {
-        if (enableMode && !PlayerSetting.isKaraokeMode()) {
-            PlayerSetting.putKaraokeMode(true);
-        }
-        refreshLyrics();
-        reloadKaraokeTrack();
-    }
-
-    private void reloadKaraokeTrack() {
-        if (mKaraoke == null || service() == null) return;
-        setAudioOnly(LyricsController.isAudioOnly(player()));
-        mKaraoke.reload(this, player(), shouldUseImmersiveAudio());
-    }
-
-    private boolean showKaraokeResultIfNeeded() {
-        return showKaraokeResultIfNeeded(null);
-    }
-
-    private boolean showKaraokeResultIfNeeded(@Nullable Runnable after) {
-        if (mKaraoke == null || !mKaraoke.isActive() || mKaraokeResultShown || isFinishing() || isDestroyed()) return false;
-        KaraokeResult result = mKaraoke.getResult();
-        if (result == null) return false;
-        mKaraokeResultShown = true;
-        KaraokeResultView view = new KaraokeResultView(this).setLeanbackLandscapeExpanded(true).setResult(result);
-        AlertDialog dialog = new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_WebHTV_LightDialog).setView(view).create();
-        view.setAction(() -> {
-            dialog.dismiss();
-            runAfterKaraokeResult(after);
-        });
-        dialog.setOnCancelListener(d -> runAfterKaraokeResult(after));
-        configureKaraokeResultDialog(dialog, view);
-        dialog.show();
-        return true;
-    }
-
-    private void configureKaraokeResultDialog(AlertDialog dialog, KaraokeResultView view) {
-        dialog.setOnShowListener(d -> {
-            Window window = dialog.getWindow();
-            if (window != null) {
-                window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
-                WindowManager.LayoutParams params = window.getAttributes();
-                if (isLandscapeAudioSheet()) {
-                    params.dimAmount = 0f;
-                    params.gravity = Gravity.CENTER;
-                    params.x = 0;
-                    params.y = 0;
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-                    window.setAttributes(params);
-                    window.setLayout(view.getPreferredDialogWidth(), WindowManager.LayoutParams.WRAP_CONTENT);
-                    Util.hideSystemUI(window);
-                    Util.hideSystemUI(this);
-                } else {
-                    params.dimAmount = 0.62f;
-                    params.gravity = Gravity.CENTER;
-                    window.setAttributes(params);
-                    window.setLayout(view.getPreferredDialogWidth(), WindowManager.LayoutParams.WRAP_CONTENT);
-                    window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-                }
-            }
-            view.requestActionFocus();
-        });
-    }
-
-    private void runAfterKaraokeResult(@Nullable Runnable after) {
-        if (after != null) after.run();
     }
 
     private void onPlayParams() {
@@ -3174,7 +2834,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         player().clear();
         mClock.setCallback(null);
         clearLyrics();
-        clearKaraokeState();
         if (mFlagAdapter.getItemCount() == 0) return;
         if (mEpisodeAdapter.getItemCount() == 0) return;
         getPlayer(getFlag(), getEpisode());
@@ -3772,7 +3431,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         setAudioStageVisible(audioContent);
         if (!audioContent) {
             mLyrics.refresh(player(), false);
-            scheduleRefreshKaraoke(seq, false, 0);
             return;
         }
         LyricsRequest request = LyricsRequest.from(player());
@@ -3782,20 +3440,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             App.post(() -> {
                 if (seq != mLyricsRefreshSeq || service() == null || !TextUtils.equals(playbackKey, Objects.toString(mPlaybackEpisodeKey, ""))) return;
                 if (!hasChoice && showInlineLyrics()) {
-                    scheduleRefreshKaraoke(seq, true, 420);
                     return;
                 }
                 mLyrics.refresh(player(), true);
-                scheduleRefreshKaraoke(seq, true, 420);
             });
         });
-    }
-
-    private void scheduleRefreshKaraoke(int seq, boolean audioContent, long delayMs) {
-        App.post(() -> {
-            if (seq != mLyricsRefreshSeq) return;
-            refreshKaraoke(audioContent);
-        }, delayMs);
     }
 
     private void setAudioStageVisible(boolean visible) {
@@ -3837,7 +3486,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.lyrics.setAudioStageMode(visible);
         mBinding.lyrics.setSuppressed(visible || !immersiveEnabled);
         mBinding.audioLyrics.setSuppressed(!visible);
-        syncKaraokeStageVisibility();
         setVideoDetailsVisible(!visible);
     }
 
@@ -3856,21 +3504,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.audioTitle.setText(TextUtils.isEmpty(getName()) ? getString(R.string.player_audio_badge_audio) : getName());
         mBinding.audioSubtitle.setVisibility(View.GONE);
         Util.hideSystemUI(this);
-    }
-
-    private void syncKaraokeStageVisibility() {
-        if (mBinding == null) return;
-        if (!PlayerSetting.isImmersiveAudioMode()) {
-            mBinding.karaoke.setVisibility(View.GONE);
-            mBinding.audioKaraoke.setVisibility(View.GONE);
-            return;
-        }
-        if (mAudioStageVisible) {
-            mBinding.karaoke.setVisibility(View.GONE);
-            if (PlayerSetting.isKaraokeMode() && mBinding.audioKaraoke.getVisibility() == View.GONE) mBinding.audioKaraoke.setVisibility(View.INVISIBLE);
-        } else {
-            mBinding.audioKaraoke.setVisibility(View.GONE);
-        }
     }
 
     private void applyAudioStageLayout(boolean visible) {
@@ -3902,7 +3535,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mBinding.audioTitle.setText(TextUtils.isEmpty(title) ? getString(R.string.player_audio_badge_audio) : title);
         mBinding.audioSubtitle.setText(subtitle);
         mBinding.audioSubtitle.setVisibility(TextUtils.isEmpty(subtitle) ? View.GONE : View.VISIBLE);
-        mBinding.audioBadgeLyrics.setText(PlayerSetting.isKaraokeMode() ? getString(R.string.player_karaoke_mode) : getString(R.string.player_audio_badge_lyrics));
+        mBinding.audioBadgeLyrics.setText(getString(R.string.player_audio_badge_lyrics));
     }
 
     private void updateAudioStageControls() {
@@ -3921,7 +3554,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         setAudioToolEnabled(mBinding.audioSubtitleAction, service() != null && player().haveTrack(C.TRACK_TYPE_TEXT));
         setAudioToolEnabled(mBinding.audioInfoAction, service() != null && !player().isEmpty());
         setAudioRepeatSelected(service() != null && player().isRepeatOne());
-        mBinding.audioKaraokeAction.setSelected(false);
         checkKeepImg();
         checkAudioPlayImg(service() != null && player().isPlaying());
         syncAudioCoverRotation();
@@ -4122,14 +3754,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mAudioCoverAnimator = null;
     }
 
-    private void syncKaraokePosition() {
-        if (service() == null || player().isEmpty()) return;
-        long position = Math.max(0, player().getPosition() + PlayerSetting.getLyricsTimeOffsetMs());
-        boolean playing = player().isPlaying();
-        mBinding.karaoke.syncPosition(position, playing);
-        mBinding.audioKaraoke.syncPosition(position, playing);
-    }
-
     private String getAudioStageTitle() {
         Episode episode = getEpisode();
         String queuedTitle = mAudioQueueTitles.get(audioQueueEpisodeKey(episode));
@@ -4178,12 +3802,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (value.isEmpty()) return "";
         String[] parts = value.split("[|｜]");
         return parts.length == 0 ? value : parts[parts.length - 1].trim();
-    }
-
-    private void refreshKaraoke(boolean audioContent) {
-        if (mKaraoke == null || service() == null) return;
-        boolean loadTrack = !mSkipKaraokeTrackAutoLoad;
-        mKaraoke.refresh(this, player(), audioContent, loadTrack);
     }
 
     private boolean isLyricsSearchAvailable() {
@@ -4432,11 +4050,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         if (mLyrics != null) mLyrics.clear();
     }
 
-    private void clearKaraokeState() {
-        mKaraokeResultShown = false;
-        if (mKaraoke != null) mKaraoke.clear();
-    }
-
     private void dismissLyricsResultDialog() {
         if (mLyricsResultDialog == null) return;
         if (mLyricsSearchDialog == mLyricsResultDialog) mLyricsSearchDialog = null;
@@ -4460,88 +4073,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         return LyricsController.hasTimedLyrics(text) ? text : "";
     }
 
-    private LinearLayout createKaraokeSheetHeader(BottomSheetDialog dialog, String title, Runnable backAction) {
-        LinearLayout row = new LinearLayout(this);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        TextView titleView = createAudioSheetTitle(title);
-        row.addView(titleView, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
-        row.addView(createKaraokeHeaderButton(dialog, getString(R.string.player_karaoke_track_back), backAction), new LinearLayout.LayoutParams(ResUtil.dp2px(76), ResUtil.dp2px(32)));
-        return row;
-    }
-
-    private TextView createKaraokeHeaderButton(BottomSheetDialog dialog, String label, Runnable action) {
-        TextView view = createAudioSheetText(label, 14, true);
-        view.setGravity(Gravity.CENTER);
-        view.setSingleLine(true);
-        view.setTextColor(0xE6FFFFFF);
-        view.setBackground(audioSheetControlBackground(0x12FFFFFF, 0x24FFFFFF));
-        setAudioSheetFocusable(view);
-        view.setOnClickListener(v -> {
-            dialog.dismiss();
-            action.run();
-        });
-        return view;
-    }
-
-    private View createKaraokeModeHeader() {
-        LinearLayout row = new LinearLayout(this);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        boolean enabled = PlayerSetting.isKaraokeMode();
-        LinearLayout text = new LinearLayout(this);
-        text.setOrientation(LinearLayout.HORIZONTAL);
-        text.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = createAudioSheetText(getString(R.string.player_karaoke_mode), 15, true);
-        TextView status = createAudioSheetText(getString(enabled ? R.string.player_karaoke_mode_enabled : R.string.player_karaoke_mode_disabled), 13, false);
-        title.setTextColor(Color.WHITE);
-        status.setTextColor(enabled ? SHEET_TEXT_SECONDARY : SHEET_TEXT_MUTED);
-        text.addView(title);
-        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-        statusParams.leftMargin = ResUtil.dp2px(10);
-        text.addView(status, statusParams);
-        row.addView(text, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
-        FrameLayout toggle = createKaraokeModeToggle(enabled);
-        row.setFocusable(true);
-        row.setBackground(audioSheetItemBackground(false));
-        row.setOnClickListener(v -> {
-            boolean next = !PlayerSetting.isKaraokeMode();
-            setKaraokeMode(next);
-            status.setText(getString(next ? R.string.player_karaoke_mode_enabled : R.string.player_karaoke_mode_disabled));
-            status.setTextColor(next ? SHEET_TEXT_SECONDARY : SHEET_TEXT_MUTED);
-            updateKaraokeModeToggle(toggle, next);
-        });
-        row.addView(toggle, new LinearLayout.LayoutParams(ResUtil.dp2px(50), ResUtil.dp2px(28)));
-        return row;
-    }
-
-    private FrameLayout createKaraokeModeToggle(boolean enabled) {
-        FrameLayout toggle = new FrameLayout(this);
-        updateKaraokeModeToggle(toggle, enabled);
-        return toggle;
-    }
-
-    private void updateKaraokeModeToggle(FrameLayout toggle, boolean enabled) {
-        toggle.removeAllViews();
-        toggle.setBackground(roundRect(enabled ? SHEET_CONTROL_BG_SELECTED : 0x18FFFFFF, 8, 1, enabled ? SHEET_CONTROL_STROKE_SELECTED : 0x2EFFFFFF));
-        View knob = new View(this);
-        knob.setBackground(roundRect(enabled ? SHEET_TEXT_PRIMARY : 0xFFE6E8EE, 6, 0, 0));
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(ResUtil.dp2px(22), ResUtil.dp2px(22), enabled ? Gravity.RIGHT | Gravity.CENTER_VERTICAL : Gravity.LEFT | Gravity.CENTER_VERTICAL);
-        params.leftMargin = ResUtil.dp2px(3);
-        params.rightMargin = ResUtil.dp2px(3);
-        toggle.addView(knob, params);
-    }
-
     private View createLyricsOffsetControl() {
         return createLyricsStepControl(getString(R.string.player_lyrics_offset), formatLyricsOffset(PlayerSetting.getLyricsTimeOffsetMs()), "-0.5s", "0", "+0.5s",
                 PlayerSetting::putLyricsTimeOffsetMs, PlayerSetting::getLyricsTimeOffsetMs,
                 LYRICS_OFFSET_MIN_MS, LYRICS_OFFSET_MAX_MS, LYRICS_OFFSET_STEP_MS, this::applyLyricsRuntimeSettings);
-    }
-
-    private View createKaraokeDelayControl() {
-        return createLyricsStepControl(getString(R.string.player_karaoke_mic_delay), getKaraokeDelayText(), "-0.1s", "0", "+0.1s",
-                PlayerSetting::putKaraokeMicDelayMs, PlayerSetting::getKaraokeMicDelayMs,
-                KARAOKE_DELAY_MIN_MS, KARAOKE_DELAY_MAX_MS, KARAOKE_DELAY_STEP_MS, this::reloadKaraokeTrack);
     }
 
     private View createLyricsStepControl(String label, String valueText, String minus, String reset, String plus, LyricsLongSetter setter, LyricsLongGetter getter, long min, long max, long step, Runnable afterChange) {
@@ -4616,8 +4151,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             mLyrics.refreshStyle();
             mLyrics.update(player());
         }
-        syncKaraokePosition();
-        if (mKaraoke != null) mKaraoke.update(player(), mLyrics == null ? null : mLyrics.getLines());
     }
 
     private void setOpening(long opening) {
@@ -4636,11 +4169,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         return items[LyricsSetting.getSourceMode()];
     }
 
-    private String karaokeDifficultyText() {
-        String[] items = ResUtil.getStringArray(R.array.select_karaoke_difficulty);
-        return items[PlayerSetting.getKaraokeDifficulty()];
-    }
-
     private String getLyricsRowsText() {
         return getString(R.string.player_lyrics_rows_value, PlayerSetting.getLyricsRows());
     }
@@ -4649,10 +4177,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mHistory.setEnding(ending);
         mBinding.control.action.ending.setText(ending <= 0 ? getString(R.string.play_ed) : Util.timeMs(mHistory.getEnding()));
         syncHistory();
-    }
-
-    private String getKaraokeDelayText() {
-        return formatLyricsOffset(PlayerSetting.getKaraokeMicDelayMs());
     }
 
     private String formatLyricsOffset(long valueMs) {
@@ -4666,72 +4190,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private interface LyricsLongGetter {
         long get();
-    }
-
-    private LinearLayout createKaraokeActionGrid(BottomSheetDialog dialog, boolean compact, String[] labels, Runnable[] actions, int columns) {
-        return createKaraokeActionGrid(dialog, compact, labels, actions, columns, true);
-    }
-
-    private LinearLayout createKaraokeActionGrid(BottomSheetDialog dialog, boolean compact, String[] labels, Runnable[] actions, int columns, boolean dismissOnClick) {
-        return createKaraokeActionGrid(dialog, compact, labels, actions, null, columns, dismissOnClick);
-    }
-
-    private LinearLayout createKaraokeActionGrid(BottomSheetDialog dialog, boolean compact, String[] labels, Runnable[] actions, boolean[] dismissOnClicks, int columns) {
-        return createKaraokeActionGrid(dialog, compact, labels, actions, dismissOnClicks, columns, true);
-    }
-
-    private LinearLayout createKaraokeActionGrid(BottomSheetDialog dialog, boolean compact, String[] labels, Runnable[] actions, @Nullable boolean[] dismissOnClicks, int columns, boolean dismissOnClick) {
-        LinearLayout grid = new LinearLayout(this);
-        grid.setOrientation(LinearLayout.VERTICAL);
-        int safeColumns = Math.max(1, columns);
-        for (int i = 0; i < labels.length; i += safeColumns) {
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            boolean fullRow = !compact && i + 1 == labels.length;
-            for (int j = 0; j < safeColumns; j++) {
-                int index = i + j;
-                if (index >= labels.length) break;
-                boolean dismiss = dismissOnClicks == null || index >= dismissOnClicks.length ? dismissOnClick : dismissOnClicks[index];
-                row.addView(createKaraokeActionButton(dialog, labels[index], actions[index], compact, dismiss), fullRow ? karaokeActionButtonFullParams() : karaokeActionButtonParams(j > 0));
-                if (fullRow) break;
-            }
-            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(compact ? 46 : 48));
-            if (i > 0) rowParams.topMargin = ResUtil.dp2px(8);
-            grid.addView(row, rowParams);
-        }
-        return grid;
-    }
-
-    private TextView createKaraokeActionButton(BottomSheetDialog dialog, String label, Runnable action, boolean compact, boolean dismissOnClick) {
-        TextView view = createAudioSheetText(label, compact ? 14 : 15, true);
-        view.setGravity(Gravity.CENTER);
-        view.setSingleLine(true);
-        view.setEllipsize(TextUtils.TruncateAt.END);
-        view.setPadding(ResUtil.dp2px(10), 0, ResUtil.dp2px(10), 0);
-        view.setTextColor(0xF2FFFFFF);
-        view.setBackground(audioSheetControlBackground(0x14FFFFFF, 0x22FFFFFF));
-        setAudioSheetFocusable(view);
-        view.setOnClickListener(v -> {
-            if (dismissOnClick) dialog.dismiss();
-            action.run();
-        });
-        return view;
-    }
-
-    private LinearLayout.LayoutParams karaokeActionGridParams(int topMarginDp) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        params.topMargin = ResUtil.dp2px(topMarginDp);
-        return params;
-    }
-
-    private LinearLayout.LayoutParams karaokeActionButtonParams(boolean withStartMargin) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1);
-        if (withStartMargin) params.leftMargin = ResUtil.dp2px(10);
-        return params;
-    }
-
-    private LinearLayout.LayoutParams karaokeActionButtonFullParams() {
-        return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
     }
 
     private BottomSheetDialog createAudioSheet() {
@@ -4991,15 +4449,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private LinearLayout.LayoutParams lyricsResultSheetParams(int count) {
         if (isLandscapeAudioSheet()) return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1);
         return new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, lyricsResultSheetHeight(count));
-    }
-
-    private int karaokeTrackResultSheetHeight(int count) {
-        if (isLandscapeAudioSheet()) {
-            int rows = Math.max(1, Math.min(5, count));
-            return Math.max(ResUtil.dp2px(160), Math.min(ResUtil.dp2px(rows * 82 + 8), audioDrawerListMaxHeight()));
-        }
-        int rows = Math.max(1, Math.min(3, count));
-        return ResUtil.dp2px(rows * 82 + 8);
     }
 
     private void showAudioSheet(BottomSheetDialog dialog) {
@@ -5296,19 +4745,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         return params;
     }
 
-    private TextView createKaraokeTrackResultItem(String label, Runnable action) {
-        TextView item = createAudioSheetText(label, 14, false);
-        item.setGravity(Gravity.CENTER_VERTICAL);
-        item.setPadding(ResUtil.dp2px(14), 0, ResUtil.dp2px(14), 0);
-        item.setSingleLine(false);
-        item.setMaxLines(3);
-        item.setLineSpacing(ResUtil.dp2px(2), 1.0f);
-        item.setTextColor(Color.WHITE);
-        item.setBackground(lyricsResultItemBackground(false));
-        item.setOnClickListener(v -> action.run());
-        return item;
-    }
-
     private Drawable lyricsResultItemBackground(boolean selected) {
         return audioSheetSelectableBackground(selected ? SHEET_CONTROL_BG_SELECTED : SHEET_CONTROL_BG_SUBTLE, selected ? SHEET_CONTROL_STROKE_SELECTED : SHEET_CONTROL_STROKE, SHEET_CONTROL_BG_SELECTED, SHEET_CONTROL_STROKE_SELECTED, SHEET_BUTTON_RADIUS_DP);
     }
@@ -5359,7 +4795,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         Track.delete(player().getKey());
         mClock.setCallback(null);
         clearLyrics();
-        clearKaraokeState();
         player().resetTrack();
         player().reset();
         player().stop();
@@ -5385,7 +4820,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
                 showProgress();
                 break;
             case Player.STATE_READY:
-                mKaraokeResultShown = false;
                 recordPlayHealth(true, "");
                 hideProgress();
                 refreshLyrics();
@@ -5399,7 +4833,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     @Override
     protected void onPlayingChanged(boolean isPlaying) {
-        syncKaraokePosition();
         checkAudioPlayImg(isPlaying);
         if (isPlaying) {
             hideCenter();
@@ -5436,9 +4869,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
             return;
         }
         updatePlaybackHistoryPosition();
-        syncKaraokePosition();
         if (mLyrics != null) mLyrics.update(player());
-        if (mKaraoke != null) mKaraoke.update(player(), mLyrics == null ? null : mLyrics.getLines());
         position = mHistory.getPosition();
         duration = mHistory.getDuration();
         PlaybackEventCollector.get().onProgress(mHistory, player());
@@ -5501,7 +4932,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void checkEnded(boolean notify) {
-        if (showKaraokeResultIfNeeded(() -> checkNext(notify))) return;
         checkNext(notify);
     }
 
@@ -5774,18 +5204,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     @Override
     public boolean isControlAudioContent() {
         return isAudioOnly() || isMusicLike();
-    }
-
-    public void onKaraokeModeChanged() {
-        mBinding.control.action.karaoke.setSelected(false);
-        mBinding.audioKaraokeAction.setSelected(false);
-        updateAudioStageText();
-        if (PlayerSetting.isKaraokeMode()) {
-            mKaraokeResultShown = false;
-            refreshLyrics();
-        } else if (mKaraoke != null) {
-            mKaraoke.clear();
-        }
     }
 
     @Override
@@ -6085,7 +5503,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     public void onCasted() {
         clearLyrics();
-        clearKaraokeState();
         player().stop();
     }
 
@@ -6116,7 +5533,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     protected void onStop() {
         super.onStop();
         if (mOsd != null) mOsd.stop();
-        if (mKaraoke != null) mKaraoke.clear();
         stopAudioCoverRotation();
         if (PlayerSetting.isBackgroundOff()) mClock.stop();
     }
@@ -6136,7 +5552,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
 
     private void finishVideoPlayback() {
         if (isPlaybackExiting()) return;
-        if (showKaraokeResultIfNeeded(this::finishVideoPlaybackNow)) return;
         finishVideoPlaybackNow();
     }
 
@@ -6163,7 +5578,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         mLyricsRefreshSeq++;
         dismissLyricsResultDialog();
         if (mLyrics != null) mLyrics.release();
-        if (mKaraoke != null) mKaraoke.release();
         mClock.release();
         saveHistory(true);
         DanmakuApi.cancel();

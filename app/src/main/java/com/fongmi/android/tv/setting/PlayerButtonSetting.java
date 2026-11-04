@@ -24,7 +24,6 @@ public class PlayerButtonSetting {
     public static final String CODEC_CAPABILITY = "codec_capability";
     public static final String SPEED = "speed";
     public static final String SCALE = "scale";
-    public static final String KARAOKE = "karaoke";
     public static final String RESET = "reset";
     public static final String REPEAT = "repeat";
     public static final String TEXT = "text";

@@ -441,9 +441,7 @@ public class ControlDialog extends BaseBottomSheetDialog implements ParseAdapter
 
         void onImmersiveAudioModeChanged();
 
-        void onKaraokeModeChanged();
 
-        void onKaraokeTrackPanel();
 
         void onCodecCapabilityPanel();
 
