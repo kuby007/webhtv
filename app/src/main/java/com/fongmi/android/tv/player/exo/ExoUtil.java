@@ -971,19 +971,6 @@ public class ExoUtil {
         protected void buildVideoRenderers(Context context, int extensionRendererMode, MediaCodecSelector mediaCodecSelector, boolean enableDecoderFallback, Handler eventHandler, VideoRendererEventListener eventListener, long allowedVideoJoiningTimeMs, ArrayList<Renderer> out) {
             MediaCodecSelector videoCodecSelector = getVideoCodecSelector(mediaCodecSelector);
             if (diagnostics != null) videoCodecSelector = ExoDiagnosticCodecAdapter.selector(videoCodecSelector, diagnostics, "video-selector-result");
-            try {
-                ExoDv5GpuRenderer dv5Renderer = ExoDv5GpuRendererFactory.create(
-                        context,
-                        getCodecAdapterFactory(),
-                        videoCodecSelector,
-                        allowedVideoJoiningTimeMs,
-                        enableDecoderFallback,
-                        eventHandler,
-                        eventListener,
-                        frameSchedulingDecision);
-                if (dv5Renderer != null) out.add(dv5Renderer);
-            } catch (Throwable ignored) {
-            }
             if (decoderRuntimeSession != null
                     && videoRenderMode == EXTENSION_RENDERER_MODE_OFF) {
                 out.add(new ExoRuntimeAwareVideoRenderer(
@@ -1132,30 +1119,22 @@ public class ExoUtil {
         }
     }
 
+    private static boolean isDolbyVisionProfile5(String sampleMimeType, String codecs) {
+        if (!MimeTypes.VIDEO_DOLBY_VISION.equals(sampleMimeType)
+                || codecs == null || codecs.isBlank()) return false;
+        int comma = codecs.indexOf(',');
+        String firstCodec = (comma < 0 ? codecs : codecs.substring(0, comma))
+                .trim().toLowerCase(java.util.Locale.US);
+        return firstCodec.startsWith("dvhe.05.") || firstCodec.startsWith("dvh1.05.");
+    }
+
     static boolean shouldUseDolbyVisionHdr10Fallback(
             Format format, boolean dv7FallbackEnabled) {
         if (format == null
                 || !MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)
                 || format.codecs == null) return false;
-        if (ExoDv5GpuMappingPolicy.isProfile5(
-                format.sampleMimeType, format.codecs)) {
-            ExoDv5GpuMappingPolicy.Decision decision =
-                    ExoDv5GpuMappingPolicy.decide(
-                            new ExoDv5GpuMappingPolicy.Input(
-                                    true,
-                                    format.cryptoType != C.CRYPTO_TYPE_NONE,
-                                    false,
-                                    false,
-                                    Build.VERSION.SDK_INT,
-                                    false,
-                                    false,
-                                    false,
-                                    false,
-                                    false,
-                                    false,
-                                    true));
-            return decision.route()
-                    == ExoDv5GpuMappingPolicy.Route.LEGACY_HDR10_FALLBACK;
+        if (isDolbyVisionProfile5(format.sampleMimeType, format.codecs)) {
+            return format.cryptoType == C.CRYPTO_TYPE_NONE;
         }
         String codecs = format.codecs.toLowerCase(java.util.Locale.US);
         return dv7FallbackEnabled && (codecs.startsWith("dvhe.07.")
