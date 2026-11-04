@@ -61,8 +61,6 @@ import com.fongmi.android.tv.bean.Sub;
 import com.fongmi.android.tv.player.PlayerHelper;
 import com.fongmi.android.tv.player.PlaybackAutoContext;
 import com.fongmi.android.tv.player.PlaybackAutoContextStore;
-import com.fongmi.android.tv.player.PlaybackExperimentCoordinator;
-import com.fongmi.android.tv.player.PlaybackExperimentPolicy;
 import com.fongmi.android.tv.player.PlaybackSystemConditionCoordinator;
 import com.fongmi.android.tv.player.engine.PlaySpec;
 import com.fongmi.android.tv.player.engine.PlayerEngine;
@@ -71,8 +69,6 @@ import com.fongmi.android.tv.player.exo.ass.ExoAssSession;
 import com.fongmi.android.tv.player.exo.subtitle.ExoSubtitleSession;
 import com.fongmi.android.tv.player.track.LangUtil;
 import com.fongmi.android.tv.setting.ExoPerformanceSetting;
-import com.fongmi.android.tv.setting.ExoFrameSchedulingExperimentSetting;
-import com.fongmi.android.tv.setting.PlaybackExperimentSetting;
 import com.fongmi.android.tv.setting.PlaybackPerformanceCatalog;
 import com.fongmi.android.tv.setting.PlaybackPerformanceSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
@@ -815,14 +811,12 @@ public class ExoUtil {
                                 PlayerSetting.EXO,
                                 PlaybackPerformanceCatalog.DURATION_PROGRESS),
                         decode == PlayerEngine.HARD,
-                        PlaybackExperimentSetting.isAllowed(
-                                PlaybackExperimentPolicy.Action
-                                        .EXO_FRAME_SCHEDULING_AB),
+                        false,
                         dynamicSchedulingEnabled,
                         queueMode == ExoPerformanceSetting.CODEC_QUEUE_SYNC,
                         PlaybackPerformanceSetting
                                 .isVideoDurationProgressEnabled(),
-                        ExoFrameSchedulingExperimentSetting.getResolution()));
+                        ExoFrameSchedulingExperimentPolicy.AssignmentResolution.unassigned()));
     }
 
     private static AudioSink buildAudioSink(
@@ -1125,7 +1119,6 @@ public class ExoUtil {
         private final ExoAutomaticVideoConstraintPolicy.Limit baselineLimit;
         private final List<ExoAutomaticVideoConstraintPolicy.Limit> tiers;
         private final PlaybackSystemConditionCoordinator.Registration systemConditionRegistration;
-        private final PlaybackExperimentCoordinator.Registration experimentRegistration;
         private final Runnable refreshRunnable;
         private PlaybackAutoContext.SessionToken boundSession;
         private ExoAutomaticVideoConstraintPolicy.State constraintState;
@@ -1157,9 +1150,6 @@ public class ExoUtil {
             this.refreshRunnable = () -> refresh("system-condition", -1);
             this.systemConditionRegistration = PlaybackSystemConditionCoordinator.process()
                     .addListener(update -> App.post(refreshRunnable, 0));
-            this.experimentRegistration = PlaybackExperimentCoordinator.process()
-                    .addListener(update -> App.post(
-                            this::onExperimentPolicyChanged, 0));
         }
 
         @Override
@@ -1234,7 +1224,6 @@ public class ExoUtil {
             released = true;
             App.removeCallbacks(refreshRunnable);
             systemConditionRegistration.close();
-            experimentRegistration.close();
         }
 
         private void refresh(String trigger, long positionMs) {
@@ -1342,11 +1331,6 @@ public class ExoUtil {
                 int droppedFrames,
                 long elapsedMs,
                 String errorType) {
-            if (!PlaybackExperimentSetting.isAllowed(
-                    PlaybackExperimentPolicy.Action.EXO_VIDEO_CONSTRAINT)) {
-                applyStableExperimentPolicy();
-                return;
-            }
             constraintState = decision.state();
             lastDecision = decision;
             if (decision.changed()) apply(decision.state().effective());
@@ -1386,16 +1370,6 @@ public class ExoUtil {
             } else {
                 App.removeCallbacks(refreshRunnable);
             }
-        }
-
-        private void onExperimentPolicyChanged() {
-            if (released) return;
-            if (!PlaybackExperimentSetting.isAllowed(
-                    PlaybackExperimentPolicy.Action.EXO_VIDEO_CONSTRAINT)) {
-                applyStableExperimentPolicy();
-                return;
-            }
-            refresh("experiment-enabled", -1);
         }
 
         private void applyStableExperimentPolicy() {

@@ -60,11 +60,8 @@ import com.fongmi.android.tv.player.danmaku.LiveDanmakuParser;
 import com.fongmi.android.tv.player.danmaku.LiveDanmakuWebSocketSession;
 import com.fongmi.android.tv.setting.DanmakuSetting;
 import com.fongmi.android.tv.setting.ExoPerformanceSetting;
-import com.fongmi.android.tv.setting.PlaybackExperimentSetting;
-import com.fongmi.android.tv.setting.PlaybackLightweightAssessmentSetting;
 import com.fongmi.android.tv.setting.PlaybackPerformanceCatalog;
 import com.fongmi.android.tv.setting.PlaybackPerformanceSetting;
-import com.fongmi.android.tv.setting.PlaybackProfileAbSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.utils.LocalProxyDebug;
 import com.fongmi.android.tv.utils.Notify;
@@ -118,16 +115,11 @@ public class PlayerManager implements ParseCallback {
     private final PlaybackTrace playbackTrace;
     private final PlaybackAutoContextStore playbackAutoContextStore;
     private final PlaybackTelemetryCoordinator playbackTelemetryCoordinator;
-    private final PlaybackProfileAbCoordinator playbackProfileAbCoordinator;
-    private final PlaybackProfileAbCoordinator
-            playbackLightweightAssessmentCoordinator;
     private final PlaybackMediaFactsCoordinator playbackMediaFactsCoordinator;
     private final ExoDecoderResourceRecoveryLimiter
             exoDecoderResourceRecoveryLimiter;
     private final ExoNetworkGuardController networkProtectionController;
     private final ExoRtspLiveLagController rtspLiveLagController;
-    private final PlaybackExperimentCoordinator playbackExperimentCoordinator;
-    private final PlaybackExperimentCoordinator.Registration playbackExperimentRegistration;
     private final ForwardBufferTrend networkProtectionTrend;
     private final LiveDanmakuBatcher liveDanmakuBatcher;
     private final LiveDanmakuBuffer liveDanmakuBuffer;
@@ -179,16 +171,9 @@ public class PlayerManager implements ParseCallback {
     private ExoNetworkGuardController.State networkProtectionState = ExoNetworkGuardController.State.NORMAL;
     private ExoNetworkGuardController.ProtectionTier networkProtectionTier = ExoNetworkGuardController.ProtectionTier.NONE;
     private String networkProtectionReason = "waiting";
-    private PlaybackExperimentCoordinator.Token networkProtectionExperimentToken;
 
     public PlayerManager(Callback callback) {
         this.callback = callback;
-        PlaybackExperimentSetting.ensureInitialized();
-        this.playbackExperimentCoordinator =
-                PlaybackExperimentCoordinator.process();
-        this.playbackExperimentRegistration =
-                playbackExperimentCoordinator.addListener(update ->
-                        App.post(() -> onPlaybackExperimentPolicyChanged(update)));
         this.runnable = this::onPlaybackTimeout;
         this.liveDanmakuMetricsRunnable = () -> logLiveDanmakuMetrics("periodic", true);
         this.networkProtectionRunnable = this::evaluateNetworkProtection;
@@ -197,9 +182,6 @@ public class PlayerManager implements ParseCallback {
         this.playbackTrace = new PlaybackTrace();
         this.playbackAutoContextStore = PlaybackAutoContextStore.process();
         this.playbackTelemetryCoordinator = PlaybackTelemetryCoordinator.process();
-        this.playbackProfileAbCoordinator = PlaybackProfileAbCoordinator.process();
-        this.playbackLightweightAssessmentCoordinator =
-                PlaybackLightweightAssessmentSetting.coordinator();
         this.playbackMediaFactsCoordinator = new PlaybackMediaFactsCoordinator(playbackAutoContextStore);
         this.exoDecoderResourceRecoveryLimiter =
                 new ExoDecoderResourceRecoveryLimiter();
@@ -232,7 +214,6 @@ public class PlayerManager implements ParseCallback {
         App.removeCallbacks(runnable);
         App.removeCallbacks(networkProtectionRunnable);
         App.removeCallbacks(playbackTelemetryRunnable);
-        playbackExperimentRegistration.close();
         stopNativeAudioSession();
         clearDanmaku("release");
         releaseLiveDanmakuSession();
@@ -259,31 +240,6 @@ public class PlayerManager implements ParseCallback {
     }
 
     public void prepareTerminalRelease() {
-    }
-
-    private boolean experimentAllowed(PlaybackExperimentPolicy.Action action) {
-        return PlaybackExperimentSetting.isAllowed(action);
-    }
-
-    private void onPlaybackExperimentPolicyChanged(
-            PlaybackExperimentCoordinator.Update update) {
-        if (update == null) return;
-        invalidatePlaybackProfileAssessments(
-                PlaybackProfileAbCoordinator.InvalidationReason
-                        .GENERATION_CHANGED);
-        PlaybackExperimentPolicy.State policy =
-                PlaybackExperimentSetting.getState();
-        PlaybackTrace.log(
-                "playback-experiment",
-                playbackTrace.current(),
-                "generation=%d change=%s strategy=%s frameAb=%s profileAb=%s action=invalidate-internal-experiments",
-                update.generation(),
-                update.change(),
-                policy.strategyId(),
-                policy.allows(PlaybackExperimentPolicy.Action
-                        .EXO_FRAME_SCHEDULING_AB),
-                policy.allows(PlaybackExperimentPolicy.Action
-                        .SHARED_PROFILE_AB_VALIDATION));
     }
 
     private void onPlaybackTimeout() {
@@ -764,8 +720,6 @@ public class PlayerManager implements ParseCallback {
     public String setSpeed(float speed) {
         if (!player.isCommandAvailable(Player.COMMAND_SET_SPEED_AND_PITCH)) return getSpeedText();
         if (Math.abs(speed - userPlaybackSpeed) >= 0.001f) {
-            invalidatePlaybackProfileAssessments(
-                    PlaybackProfileAbCoordinator.InvalidationReason.USER_SPEED);
         }
         userPlaybackSpeed = speed;
         resetNetworkProtectionSession("user-speed");
@@ -781,9 +735,6 @@ public class PlayerManager implements ParseCallback {
         }
         float current = player.getPlaybackParameters().speed;
         if (Math.abs(speed - userPlaybackSpeed) >= 0.001f) {
-            invalidatePlaybackProfileAssessments(
-                    PlaybackProfileAbCoordinator.InvalidationReason
-                            .SPEED_RESCUE_CONFOUND);
         }
         logNetworkGuard(String.format(java.util.Locale.US,
                 "apply request reason=%s requested=%.3f current=%.3f user=%.3f state=%d playing=%s loading=%s",
@@ -805,7 +756,6 @@ public class PlayerManager implements ParseCallback {
         networkProtectionSpeed = 1f;
         networkProtectionSupportedSpeed = 1f;
         networkProtectionMediaBitrate = 0;
-        networkProtectionExperimentToken = null;
         applyEffectiveSpeed(userPlaybackSpeed, reason);
     }
 
@@ -814,8 +764,7 @@ public class PlayerManager implements ParseCallback {
                 .outputMode();
         return ExoNetworkGuardEligibility.resolve(new ExoNetworkGuardEligibility.Request(
                 ExoPerformanceSetting.isNetworkProtectionEnabled()
-                        && experimentAllowed(
-                        PlaybackExperimentPolicy.Action.EXO_NETWORK_SPEED),
+                        && false,
                 player != null && isExo(),
                 isVod(),
                 Math.abs(userPlaybackSpeed - 1f) < 0.001f,
@@ -846,128 +795,11 @@ public class PlayerManager implements ParseCallback {
             return;
         }
         if (player.getPlaybackState() != Player.STATE_READY || !player.isPlaying()) return;
-        networkProtectionExperimentToken = playbackExperimentCoordinator.capture(
-                PlaybackExperimentPolicy.Action.EXO_NETWORK_SPEED);
         App.post(networkProtectionRunnable, delayMs);
     }
 
     private void evaluateNetworkProtection() {
-        if (player == null) return;
-        if (!playbackExperimentCoordinator.isCurrent(
-                networkProtectionExperimentToken)
-                || !experimentAllowed(
-                PlaybackExperimentPolicy.Action.EXO_NETWORK_SPEED)) {
-            resetNetworkProtectionSession("experiment-disabled");
-            return;
-        }
-        ExoNetworkGuardEligibility.Decision eligibility = getNetworkProtectionEligibility();
-        boolean eligible = eligibility.eligible();
-        long nowMs = SystemClock.elapsedRealtime();
-        boolean ready = player.getPlaybackState() == Player.STATE_READY;
-        boolean playing = player.isPlaying();
-        boolean loading = player.isLoading();
-        long bufferedMs = Math.max(0, player.getTotalBufferedDuration());
-        networkProtectionTrend.observe(
-                nowMs,
-                bufferedMs,
-                eligible && ready && playing,
-                loading);
-        ForwardBufferTrend.Snapshot trend = networkProtectionTrend.snapshot();
-        PlaybackAnalyticsListener.Snapshot analytics = PlaybackAnalyticsListener.getSnapshot();
-        PlaybackAnalyticsListener.DisplayMediaBitrateEstimate media = PlaybackAnalyticsListener.getDisplayMediaBitrateEstimate(getVideoFormat());
-        boolean networkEstimateKnown = isTrustedNetworkEstimate(analytics, media);
-        float networkSupportedSpeed = networkEstimateKnown ? Math.min(2f, analytics.bandwidthEstimate() * 0.90f / media.bitrateBitsPerSecond()) : 1f;
-        long safeBufferMs = getNetworkProtectionSafeBufferMs();
-        float previousEffectiveSpeed = getEffectiveSpeed();
-        ExoNetworkGuardController.State previousState = networkProtectionState;
-        ExoNetworkGuardController.ProtectionTier previousTier = networkProtectionTier;
-        ExoNetworkGuardController.Decision decision = networkProtectionController.evaluate(new ExoNetworkGuardController.Input(
-                nowMs,
-                eligible,
-                ready,
-                playing,
-                loading,
-                bufferedMs,
-                trend.known(),
-                trend.slopeMsPerSecond(),
-                trend.fastSlopeMsPerSecond(),
-                trend.slowSlopeMsPerSecond(),
-                trend.windowMs(),
-                analytics.rebufferCount(),
-                previousEffectiveSpeed,
-                ExoPerformanceSetting.getNetworkProtectionMinimumSpeed(),
-                safeBufferMs,
-                networkEstimateKnown,
-                networkSupportedSpeed));
-        logNetworkGuard(String.format(java.util.Locale.US,
-                "evaluate eligible=%s ready=%s playing=%s loading=%s buffered=%d safe=%d trendKnown=%s slope=%d fast=%d slow=%d window=%d rebuffer=%d current=%.3f networkKnown=%s networkSupported=%.3f decision=%s tier=%s reason=%s changed=%s target=%.3f supported=%.3f raw=%.3f calculated=%.3f tte=%d ttr=%d requiredSlew=%.4f appliedSlew=%.4f feasible=%s",
-                eligible, ready, playing, loading, bufferedMs, safeBufferMs, trend.known(), trend.slopeMsPerSecond(),
-                trend.fastSlopeMsPerSecond(), trend.slowSlopeMsPerSecond(), trend.windowMs(), analytics.rebufferCount(),
-                getEffectiveSpeed(), networkEstimateKnown, networkSupportedSpeed, decision.state(), decision.tier(), decision.reason(),
-                decision.changed(), decision.targetSpeed(), decision.supportedSpeed(), decision.rawTargetSpeed(),
-                decision.calculatedTargetSpeed(), decision.timeToEmptyMs(), decision.timeToReserveMs(),
-                decision.requiredSlewPerSecond(), decision.appliedSlewPerSecond(), decision.rampFeasible()));
-        networkProtectionState = decision.state();
-        networkProtectionTier = decision.tier();
-        networkProtectionReason = decision.reason();
-        networkProtectionSpeed = decision.targetSpeed();
-        networkProtectionSupportedSpeed = decision.supportedSpeed();
-        networkProtectionMediaBitrate = media.bitrateBitsPerSecond();
-        if (decision.changed()) applyEffectiveSpeed(networkProtectionSpeed, "guard-" + decision.reason());
-        PlaybackTelemetry.DecisionOutcome telemetryOutcome = decision.changed()
-                ? PlaybackTelemetry.DecisionOutcome.APPLIED
-                : !eligible || !ready || !playing
-                ? PlaybackTelemetry.DecisionOutcome.SUPPRESSED
-                : PlaybackTelemetry.DecisionOutcome.HELD;
-        playbackTelemetryCoordinator.publishDecision(playbackAutoSession,
-                new PlaybackTelemetry.DecisionEvent(
-                        PlaybackTelemetry.DecisionDomain.NETWORK_PROTECTION,
-                        telemetryOutcome,
-                        previousState.name().toLowerCase(java.util.Locale.US),
-                        decision.state().name().toLowerCase(java.util.Locale.US),
-                        networkProtectionState.name().toLowerCase(java.util.Locale.US),
-                        decision.reason(),
-                        telemetryOutcome == PlaybackTelemetry.DecisionOutcome.SUPPRESSED
-                                ? eligibility.reason() : telemetryOutcome == PlaybackTelemetry.DecisionOutcome.HELD ? "no-change" : "none",
-                        List.of(
-                                PlaybackTelemetry.DecisionInput.bool("eligible", eligible, PlaybackAutoContext.ValueSource.PLAYER_MANAGER, PlaybackAutoContext.Confidence.HIGH),
-                                PlaybackTelemetry.DecisionInput.bool("ready", ready, PlaybackAutoContext.ValueSource.PLAYER_CALLBACK, PlaybackAutoContext.Confidence.HIGH),
-                                PlaybackTelemetry.DecisionInput.bool("playing", playing, PlaybackAutoContext.ValueSource.PLAYER_CALLBACK, PlaybackAutoContext.Confidence.HIGH),
-                                PlaybackTelemetry.DecisionInput.bool("loading", loading, PlaybackAutoContext.ValueSource.PLAYER_CALLBACK, PlaybackAutoContext.Confidence.HIGH),
-                                PlaybackTelemetry.DecisionInput.number("buffered_ms", bufferedMs, PlaybackAutoContext.ValueSource.PLAYER_CALLBACK, PlaybackAutoContext.Confidence.HIGH),
-                                PlaybackTelemetry.DecisionInput.number("safe_buffer_ms", safeBufferMs, PlaybackAutoContext.ValueSource.PLAYER_MANAGER, PlaybackAutoContext.Confidence.HIGH),
-                                networkEstimateKnown ? PlaybackTelemetry.DecisionInput.number("bandwidth_bps", analytics.bandwidthEstimate(), PlaybackAutoContext.ValueSource.ESTIMATOR, PlaybackAutoContext.Confidence.MEDIUM) : PlaybackTelemetry.DecisionInput.unknown("bandwidth_bps"),
-                                media.bitrateBitsPerSecond() > 0 ? PlaybackTelemetry.DecisionInput.number("media_bitrate_bps", media.bitrateBitsPerSecond(), PlaybackAutoContext.ValueSource.ESTIMATOR, telemetryConfidence(media.confidence())) : PlaybackTelemetry.DecisionInput.unknown("media_bitrate_bps"),
-                                PlaybackTelemetry.DecisionInput.number("rebuffer_count", analytics.rebufferCount(), PlaybackAutoContext.ValueSource.PLAYER_CALLBACK, PlaybackAutoContext.Confidence.HIGH),
-                                trend.known() ? PlaybackTelemetry.DecisionInput.number("buffer_slope_msps", trend.slopeMsPerSecond(), PlaybackAutoContext.ValueSource.ESTIMATOR, PlaybackAutoContext.Confidence.MEDIUM) : PlaybackTelemetry.DecisionInput.unknown("buffer_slope_msps"),
-                                PlaybackTelemetry.DecisionInput.decimal("current_speed", previousEffectiveSpeed, PlaybackAutoContext.ValueSource.PLAYER_CALLBACK, PlaybackAutoContext.Confidence.HIGH),
-                                PlaybackTelemetry.DecisionInput.decimal("target_speed", decision.targetSpeed(), PlaybackAutoContext.ValueSource.PLAYER_MANAGER, PlaybackAutoContext.Confidence.HIGH))),
-                nowMs);
-        if (decision.changed() || previousState != networkProtectionState || previousTier != networkProtectionTier) {
-            PlaybackTrace.log("exo-network-protection", playbackTrace.current(), "state=%s tier=%s reason=%s speed=%.3f supported=%.3f rawTarget=%.3f target=%.3f floor=%.2f buffered=%d safe=%d tte=%d ttr=%d requiredSlew=%.4f appliedSlew=%.4f feasible=%s loading=%s slope=%d fast=%d slow=%d window=%d rebuffer=%d networkKnown=%s networkSupported=%.3f route=%s",
-                    networkProtectionState, networkProtectionTier, networkProtectionReason, networkProtectionSpeed, decision.supportedSpeed(), decision.rawTargetSpeed(), decision.calculatedTargetSpeed(), ExoPerformanceSetting.getNetworkProtectionMinimumSpeed(),
-                    player.getTotalBufferedDuration(), decision.safeBufferMs(), decision.timeToEmptyMs(), decision.timeToReserveMs(), decision.requiredSlewPerSecond(), decision.appliedSlewPerSecond(), decision.rampFeasible(),
-                    player.isLoading(), trend.slopeMsPerSecond(), trend.fastSlopeMsPerSecond(), trend.slowSlopeMsPerSecond(), trend.windowMs(), analytics.rebufferCount(), networkEstimateKnown, networkSupportedSpeed, getEffectivePlaybackRoute().route());
-        }
-        if (eligible && player.getPlaybackState() == Player.STATE_READY && player.isPlaying()) scheduleNetworkProtection(getNetworkProtectionEvaluationDelayMs());
-    }
-
-    private long getNetworkProtectionEvaluationDelayMs() {
-        return switch (networkProtectionState) {
-            case WARNING, PROTECT, RECOVERY -> ExoNetworkGuardController.CONTROL_INTERVAL_MS;
-            case NORMAL, UNSUSTAINABLE -> ExoNetworkGuardController.OBSERVE_INTERVAL_MS;
-        };
-    }
-
-    private long getNetworkProtectionSafeBufferMs() {
-        PlaybackRoute.Resolution route = getEffectivePlaybackRoute();
-        return ExoNetworkGuardBufferPolicy.resolve(route.loopback(), ExoPerformanceSetting.getRebufferMs());
-    }
-
-    private boolean isTrustedNetworkEstimate(PlaybackAnalyticsListener.Snapshot analytics, PlaybackAnalyticsListener.DisplayMediaBitrateEstimate media) {
-        if (analytics.bandwidthEstimate() <= 0 || media.bitrateBitsPerSecond() <= 0) return false;
-        if ("unknown".equals(media.source()) || "low".equals(media.confidence()) || "unknown".equals(media.confidence())) return false;
-        return getEffectivePlaybackRoute().route() == PlaybackRoute.DIRECT_REMOTE_HTTP;
+        resetNetworkProtectionSession("experiment-disabled");
     }
 
     public String addSpeed() {
@@ -1006,8 +838,6 @@ public class PlayerManager implements ParseCallback {
     }
 
     public void pause() {
-        invalidatePlaybackProfileAssessments(
-                PlaybackProfileAbCoordinator.InvalidationReason.PAUSED);
         player.pause();
         stopNativeAudioSession();
     }
@@ -1035,8 +865,6 @@ public class PlayerManager implements ParseCallback {
 
     public void seekTo(long time) {
         long now = SystemClock.elapsedRealtime();
-        invalidatePlaybackProfileAssessments(
-                PlaybackProfileAbCoordinator.InvalidationReason.USER_SEEK);
         rtspLiveLagController.onUserSeek(playbackAutoSession, now);
         resetNetworkProtectionSession("user-seek");
         if (isExo()) {
@@ -1972,7 +1800,6 @@ public class PlayerManager implements ParseCallback {
         PlaybackMemoryMonitor.process().beginSession(playbackAutoSession);
         PlaybackSystemConditionMonitor.process().beginSession(playbackAutoSession);
         playbackTelemetryCoordinator.beginSession(playbackAutoSession, now);
-        beginPlaybackProfileAbSession(now);
         lastLoggedRouteTraceId = PlaybackTrace.NONE;
         bindPlaybackTrace();
         playbackTrace.mark(PlaybackTrace.Stage.REQUEST, "reason=" + reason + " player=" + playerType + " decode=" + (engine == null ? -1 : engine.getDecode()));
@@ -1982,142 +1809,6 @@ public class PlayerManager implements ParseCallback {
 
     private void bindPlaybackTrace() {
         if (spec != null) spec.setPlaybackTraceId(playbackTrace.current());
-    }
-
-    private void beginPlaybackProfileAbSession(long nowElapsedMs) {
-        PlaybackProfileAbPolicy.EnrollmentResolution enrollment =
-                PlaybackProfileAbSetting.getEnrollmentResolution();
-        PlaybackProfileAbPolicy.Arm arm = currentPlaybackProfileAbArm();
-        playbackProfileAbCoordinator.beginSession(
-                playbackAutoSession,
-                new PlaybackProfileAbCoordinator.StartConfig(
-                        enrollment.active()
-                                && playbackProfileAbGateOpen()
-                                && arm != null,
-                        arm,
-                        enrollment.enrollment().deviceDigest(),
-                        playbackExperimentCoordinator.generation(),
-                        Math.abs(userPlaybackSpeed - 1f) < 0.001f),
-                nowElapsedMs);
-        PlaybackProfileAbPolicy.EnrollmentResolution lightweightEnrollment =
-                PlaybackLightweightAssessmentSetting
-                        .getEnrollmentResolution();
-        PlaybackProfileAbPolicy.Arm lightweightArm =
-                currentPlaybackLightweightAssessmentArm();
-        playbackLightweightAssessmentCoordinator.beginSession(
-                playbackAutoSession,
-                new PlaybackProfileAbCoordinator.StartConfig(
-                        lightweightEnrollment.active()
-                                && playbackProfileAbGateOpen()
-                                && lightweightArm != null,
-                        lightweightArm,
-                        lightweightEnrollment.enrollment().deviceDigest(),
-                        playbackExperimentCoordinator.generation(),
-                        Math.abs(userPlaybackSpeed - 1f) < 0.001f),
-                nowElapsedMs);
-    }
-
-    private void observePlaybackProfileAb(
-            PlaybackTelemetry.RuntimeObservation observation,
-            long nowElapsedMs) {
-        if (!playbackAutoSession.active()) return;
-        boolean playbackIntended = false;
-        if (player != null) {
-            try {
-                playbackIntended = player.getPlayWhenReady()
-                        && (player.isPlaying()
-                        || player.getPlaybackState()
-                        == Player.STATE_BUFFERING);
-            } catch (Throwable ignored) {
-            }
-        }
-        boolean frameSchedulingExperimentActive = false;
-        if (isExo()) {
-            try {
-                var frameScheduling = PlaybackAnalyticsListener
-                        .getFrameSchedulingExperimentSnapshot();
-                frameSchedulingExperimentActive = frameScheduling.active()
-                        && playbackTrace.current().equals(
-                        frameScheduling.traceId());
-            } catch (Throwable ignored) {
-            }
-        }
-        playbackProfileAbCoordinator.observe(
-                playbackAutoSession,
-                new PlaybackProfileAbCoordinator.RuntimeInput(
-                        PlaybackProfileAbSetting.isEnrolled()
-                                && playbackProfileAbGateOpen(),
-                        currentPlaybackProfileAbArm(),
-                        playbackExperimentCoordinator.generation(),
-                        playbackAutoContextStore.snapshot(),
-                        observation,
-                        playbackIntended,
-                        frameSchedulingExperimentActive,
-                        false),
-                nowElapsedMs);
-        playbackLightweightAssessmentCoordinator.observe(
-                playbackAutoSession,
-                new PlaybackProfileAbCoordinator.RuntimeInput(
-                        PlaybackLightweightAssessmentSetting.isEnrolled()
-                                && playbackProfileAbGateOpen(),
-                        currentPlaybackLightweightAssessmentArm(),
-                        playbackExperimentCoordinator.generation(),
-                        playbackAutoContextStore.snapshot(),
-                        observation,
-                        playbackIntended,
-                        frameSchedulingExperimentActive,
-                        false),
-                nowElapsedMs);
-    }
-
-    private void finishPlaybackProfileAbSession(
-            String reason,
-            long nowElapsedMs) {
-        playbackProfileAbCoordinator.endSession(
-                playbackAutoSession,
-                new PlaybackProfileAbCoordinator.EndConfig(
-                        PlaybackProfileAbSetting.isEnrolled()
-                                && playbackProfileAbGateOpen(),
-                        currentPlaybackProfileAbArm(),
-                        playbackExperimentCoordinator.generation(),
-                        reason),
-                nowElapsedMs,
-                System.currentTimeMillis());
-        playbackLightweightAssessmentCoordinator.endSession(
-                playbackAutoSession,
-                new PlaybackProfileAbCoordinator.EndConfig(
-                        PlaybackLightweightAssessmentSetting.isEnrolled()
-                                && playbackProfileAbGateOpen(),
-                        currentPlaybackLightweightAssessmentArm(),
-                        playbackExperimentCoordinator.generation(),
-                        reason),
-                nowElapsedMs,
-                System.currentTimeMillis());
-    }
-
-    private PlaybackProfileAbPolicy.Arm currentPlaybackProfileAbArm() {
-        return PlaybackProfileAbPolicy.armForProfile(
-                PlaybackPerformanceSetting.getProfile(playerType));
-    }
-
-    private PlaybackProfileAbPolicy.Arm
-    currentPlaybackLightweightAssessmentArm() {
-        return PlaybackLightweightAssessmentPolicy.armForProfile(
-                PlaybackPerformanceSetting.getProfile(playerType));
-    }
-
-    private void invalidatePlaybackProfileAssessments(
-            PlaybackProfileAbCoordinator.InvalidationReason reason) {
-        playbackProfileAbCoordinator.invalidate(
-                playbackAutoSession, reason);
-        playbackLightweightAssessmentCoordinator.invalidate(
-                playbackAutoSession, reason);
-    }
-
-    private boolean playbackProfileAbGateOpen() {
-        return PlaybackProfileAbPolicy.gateAllows(
-                PlaybackExperimentSetting.getState(),
-                playbackAutoKernel(playerType));
     }
 
     private PlaybackResourceClassifier.Classification currentResourceClassification() {
@@ -2185,7 +1876,6 @@ public class PlayerManager implements ParseCallback {
                 collectPlaybackTelemetry(phaseOverride, now);
         playbackTelemetryCoordinator.publishRuntime(
                 playbackAutoSession, observation, now);
-        observePlaybackProfileAb(observation, now);
         evaluateExoRtspLiveLag(observation, now);
         if (phaseOverride != PlaybackAutoContext.PlaybackPhase.ERROR) {
         }
@@ -2203,8 +1893,6 @@ public class PlayerManager implements ParseCallback {
         long now = SystemClock.elapsedRealtime();
         PlaybackTelemetry.RuntimeObservation observation =
                 collectPlaybackTelemetry(null, now);
-        observePlaybackProfileAb(observation, now);
-        finishPlaybackProfileAbSession(reason, now);
         playbackTelemetryCoordinator.endSession(
                 playbackAutoSession, reason, observation, now);
         rtspLiveLagController.endSession(playbackAutoSession);
@@ -2329,9 +2017,7 @@ public class PlayerManager implements ParseCallback {
             PlaybackTelemetry.RuntimeObservation observation,
             long nowMs) {
         if (!playbackAutoSession.active()) return;
-        boolean automatic = PlaybackPerformanceSetting.isAuto(PlayerSetting.EXO)
-                && experimentAllowed(
-                PlaybackExperimentPolicy.Action.EXO_RTSP_RECOVERY);
+        boolean automatic = PlaybackPerformanceSetting.isAuto(PlayerSetting.EXO);
         boolean exo = isExo() && engine instanceof ExoPlayerEngine;
         PlaybackResourceClassifier.Classification classification =
                 currentResourceClassification();
@@ -2783,8 +2469,6 @@ public class PlayerManager implements ParseCallback {
             if (!isPlaying) discardLiveDanmakuPending();
             if (isPlaying) scheduleNetworkProtection(0);
             else if (player.getPlaybackState() == Player.STATE_READY && !player.getPlayWhenReady()) {
-                invalidatePlaybackProfileAssessments(
-                        PlaybackProfileAbCoordinator.InvalidationReason.PAUSED);
                 resetNetworkProtectionSession("paused");
             } else if (player.getPlaybackState() != Player.STATE_BUFFERING) {
                 App.removeCallbacks(networkProtectionRunnable);
@@ -2826,8 +2510,6 @@ public class PlayerManager implements ParseCallback {
             publishPlaybackTelemetry();
             if (state == Player.STATE_ENDED) {
                 App.removeCallbacks(playbackTelemetryRunnable);
-                finishPlaybackProfileAbSession(
-                        "ended", SystemClock.elapsedRealtime());
             } else {
                 schedulePlaybackTelemetry();
             }
@@ -2911,8 +2593,6 @@ public class PlayerManager implements ParseCallback {
             if (action == PlayerEngine.ErrorAction.DECODE && retryHardDecodeSwitch(e)) return;
             if (action == PlayerEngine.ErrorAction.FATAL && retryLocalProxy(e)) return;
                 if (action == PlayerEngine.ErrorAction.RELOAD) {
-                finishPlaybackProfileAbSession(
-                        "player-error", SystemClock.elapsedRealtime());
                 callback.onReload(getPlaybackErrorMessage(failure));
                 return;
             }
@@ -2920,8 +2600,6 @@ public class PlayerManager implements ParseCallback {
                 if (spec != null) setDanmakus(spec.getDanmakus());
                 return;
             }
-            finishPlaybackProfileAbSession(
-                    "player-error", SystemClock.elapsedRealtime());
             callback.onError(getPlaybackErrorMessage(failure));
         }
     };
@@ -3205,11 +2883,6 @@ public class PlayerManager implements ParseCallback {
         }
         boolean dolbyVisionFallback =
                 exo.isDolbyVisionP81RuntimeFailurePending();
-        if (!dolbyVisionFallback
-                && !experimentAllowed(
-                PlaybackExperimentPolicy.Action.EXO_DECODER_RUNTIME_REBUILD)) {
-            return false;
-        }
         if (!exo.prepareDecoderRuntimeFallback()) {
             return false;
         }

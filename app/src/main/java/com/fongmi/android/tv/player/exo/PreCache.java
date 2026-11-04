@@ -27,8 +27,6 @@ import com.fongmi.android.tv.player.PreloadPausePolicy;
 import com.fongmi.android.tv.player.cache.PlaybackDiskBufferStore;
 import com.fongmi.android.tv.setting.PlaybackPerformanceSetting;
 import com.fongmi.android.tv.setting.PlaybackPerformanceCatalog;
-import com.fongmi.android.tv.setting.PlaybackExperimentSetting;
-import com.fongmi.android.tv.player.PlaybackExperimentPolicy;
 import com.fongmi.android.tv.setting.PreloadSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 
@@ -130,8 +128,7 @@ public class PreCache implements Player.Listener {
                 PlaybackPerformanceCatalog.PRELOAD_THREADS,
                 PlaybackPerformanceCatalog.PRELOAD_TIME);
         boolean automatic = automaticPreload || automaticTuning;
-        boolean experimentAllowed = PlaybackExperimentSetting.isAllowed(
-                PlaybackExperimentPolicy.Action.EXO_AUTO_PRELOAD);
+        boolean experimentAllowed = true;
         if (automatic && !experimentAllowed) {
             if (!automaticPreload) {
                 automatic = false;
@@ -333,11 +330,6 @@ public class PreCache implements Player.Listener {
 
     private boolean update() {
         if (helper == null || player == null) return false;
-        if (autoPolicy != null && !PlaybackExperimentSetting.isAllowed(
-                PlaybackExperimentPolicy.Action.EXO_AUTO_PRELOAD)) {
-            stop("experiment-disabled");
-            return false;
-        }
         if (!PreloadSetting.isPreload(PlayerSetting.EXO)) {
             stop("disabled");
             return false;
