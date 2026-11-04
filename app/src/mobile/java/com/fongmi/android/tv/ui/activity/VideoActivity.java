@@ -108,7 +108,6 @@ import com.fongmi.android.tv.player.lyrics.LyricsResult;
 import com.fongmi.android.tv.player.mpv.MpvConfigStore;
 import com.fongmi.android.tv.service.PlaybackService;
 import com.fongmi.android.tv.setting.DanmakuSetting;
-import com.fongmi.android.tv.setting.LyricsSetting;
 import com.fongmi.android.tv.setting.PlayerButtonSetting;
 import com.fongmi.android.tv.setting.PlayerSetting;
 import com.fongmi.android.tv.setting.Setting;
@@ -212,19 +211,12 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private boolean mAudioStageVisible;
     private boolean mAudioLightEffectAnimated;
     private boolean mRestoringConfigurationPlayback;
-    private BottomSheetDialog mLyricsResultDialog;
     private BottomSheetDialog mAudioQueueDialog;
     private ObjectAnimator mAudioCoverAnimator;
-    private LinearLayout mLyricsResultList;
     private RecyclerView mAudioQueueList;
     private AudioQueueAdapter mAudioQueueAdapter;
     private LinearLayout mAudioQueueSearchList;
     private TextView mAudioQueueStatus;
-    private List<LyricsResult> mLyricsSearchResults;
-    private String mLyricsSearchKeyword;
-    private String mLyricsLastSearchSignature;
-    private String mLyricsLastSearchKeyword;
-    private String mLyricsSelectedResultKey;
     private String mDetailLyrics;
     private String mInlineLyrics;
     private long mLyricsLoopLastPlayerPosition = C.TIME_UNSET;
@@ -269,7 +261,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private int mStatusBarInset;
     private int mEpisodeBottomInset;
     private int mNavigationRightInset;
-    private int mLyricsSearchSeq;
     private int mAudioQueueSearchSeq;
     private int mAudioPlaylistCurrentIndex = -1;
     private int mEpisodeMaxHeight;
@@ -289,7 +280,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private String playHealthKey;
     private long detailStartTime;
     private long playerStartTime;
-    private boolean skipPausePiP;
 
 
 
@@ -483,7 +473,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     @Override
     protected void onServiceConnected() {
         player().setDanmakuController(mBinding.exo.getDanmakuController());
-        syncDesktopLyricsAudioContent();
         setPlayerKernel();
         setDecode();
         applyDeferredFullscreenOrientation();
@@ -584,9 +573,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         if (!PlayerSetting.isImmersiveAudioMode() || mLyrics != null || mBinding == null) return;
         mLyrics = new LyricsController(mBinding.lyrics);
         mLyrics.setSecondaryView(mBinding.audioLyrics);
-        mLyrics.setListener((result, lines) -> {
-            if (service() != null) service().setDesktopLyricsSnapshot(result, lines);
-        });
     }
 
     private boolean shouldUseImmersiveAudio() {
@@ -695,7 +681,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mBinding.audioNext.setOnClickListener(view -> checkNext());
         mBinding.audioPrev.setOnClickListener(view -> checkPrev());
         mBinding.audioRepeatAction.setOnClickListener(view -> onRepeat());
-        mBinding.audioLyricsAction.setOnClickListener(view -> onLyricsSearch());
+        mBinding.audioLyricsAction.setOnClickListener(view -> showLyricsSettingsPanel());
         mBinding.audioQueueAction.setOnClickListener(view -> onAudioQueue());
         mBinding.audioCastAction.setOnClickListener(view -> onCast());
         mBinding.audioKeepAction.setOnClickListener(view -> onKeep());
@@ -1506,129 +1492,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     }
 
     private void onSearch() {
-        if (onLyricsSearch()) return;
         onName();
-    }
-
-    private boolean onLyricsSearch() {
-        if (!isLyricsSearchAvailable()) return false;
-        showLyricsSearchSheet(getLyricsSearchKeyword(), getLyricsSearchSuggestions());
-        return true;
-    }
-
-    private void showLyricsSearchSheet(String keyword, List<String> suggestions) {
-        int searchSeqAtOpen = mLyricsSearchSeq;
-        BottomSheetDialog dialog = createAudioSheet();
-        LinearLayout root = createAudioSheetRoot();
-        root.addView(createAudioSheetTitle(getString(R.string.player_lyrics_reload)), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(34)));
-
-        LinearLayout row = new LinearLayout(this);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        TextInputLayout layout = new TextInputLayout(this);
-        styleAudioSheetInput(layout, getString(R.string.player_lyrics_keyword));
-        TextInputEditText input = new TextInputEditText(layout.getContext());
-        input.setSingleLine(true);
-        input.setMaxLines(1);
-        input.setTextColor(Color.WHITE);
-        input.setHintTextColor(0x70FFFFFF);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS | InputType.TYPE_TEXT_FLAG_AUTO_CORRECT | InputType.TYPE_TEXT_FLAG_AUTO_COMPLETE);
-        input.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
-        input.setText(TextUtils.isEmpty(keyword) ? "" : keyword);
-        if (input.getText() != null) input.setSelection(input.getText().length());
-        layout.addView(input, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        row.addView(layout, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-        LinearLayout.LayoutParams searchParams = new LinearLayout.LayoutParams(ResUtil.dp2px(50), ResUtil.dp2px(50));
-        searchParams.leftMargin = ResUtil.dp2px(10);
-        row.addView(createAudioSheetIconButton(R.drawable.ic_action_search, () -> submitLyricsSearchSheet(dialog, input)), searchParams);
-        LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        inputParams.topMargin = ResUtil.dp2px(12);
-        root.addView(row, inputParams);
-        addLyricsSearchSuggestions(root, input, suggestions);
-
-        dialog.setContentView(root);
-        input.setOnEditorActionListener((v, actionId, event) -> {
-            if (actionId != EditorInfo.IME_ACTION_SEARCH) return false;
-            submitLyricsSearchSheet(dialog, input);
-            return true;
-        });
-        showCompactPlaybackSheet(dialog);
-        String autoKeyword = firstLyricsSearchSuggestion(suggestions);
-        input.post(() -> {
-            if (!dialog.isShowing() || mLyricsSearchSeq != searchSeqAtOpen) return;
-            String current = input.getText() == null ? "" : input.getText().toString();
-            if (!TextUtils.isEmpty(autoKeyword) && (TextUtils.isEmpty(current) || TextUtils.equals(current, keyword))) {
-                input.setText(autoKeyword);
-                if (input.getText() != null) input.setSelection(input.getText().length());
-                Util.hideKeyboard(input);
-                SpiderDebug.log("lyrics-ui", "mobile auto search suggestion=%s", autoKeyword);
-                searchLyrics(autoKeyword);
-            } else {
-                Util.showKeyboard(input);
-            }
-        });
-    }
-
-    private String firstLyricsSearchSuggestion(List<String> suggestions) {
-        if (suggestions == null) return "";
-        for (String suggestion : suggestions) {
-            String value = Objects.toString(suggestion, "").trim();
-            if (!TextUtils.isEmpty(value)) return value;
-        }
-        return "";
-    }
-
-    private void addLyricsSearchSuggestions(LinearLayout root, TextInputEditText input, List<String> suggestions) {
-        if (suggestions == null || suggestions.isEmpty()) return;
-        HorizontalScrollView scroll = new HorizontalScrollView(this);
-        scroll.setHorizontalScrollBarEnabled(false);
-        scroll.setOverScrollMode(HorizontalScrollView.OVER_SCROLL_NEVER);
-
-        LinearLayout row = new LinearLayout(this);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        int count = Math.min(8, suggestions.size());
-        for (int i = 0; i < count; i++) {
-            String text = suggestions.get(i);
-            if (TextUtils.isEmpty(text)) continue;
-            TextView chip = createLyricsSearchSuggestionChip(input, text);
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ResUtil.dp2px(32));
-            if (row.getChildCount() > 0) params.leftMargin = ResUtil.dp2px(6);
-            row.addView(chip, params);
-        }
-        if (row.getChildCount() == 0) return;
-        scroll.addView(row, new HorizontalScrollView.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ResUtil.dp2px(32)));
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(32));
-        params.topMargin = ResUtil.dp2px(8);
-        root.addView(scroll, params);
-    }
-
-    private TextView createLyricsSearchSuggestionChip(TextInputEditText input, String text) {
-        TextView chip = createAudioSheetText(text, 13, false);
-        chip.setGravity(Gravity.CENTER);
-        chip.setSingleLine(true);
-        chip.setEllipsize(TextUtils.TruncateAt.END);
-        chip.setPadding(ResUtil.dp2px(10), 0, ResUtil.dp2px(10), 0);
-        chip.setTextColor(SHEET_TEXT_SECONDARY);
-        chip.setBackground(roundRect(SHEET_CONTROL_BG_SUBTLE, SHEET_BUTTON_RADIUS_DP, 1, SHEET_CONTROL_STROKE));
-        chip.setOnClickListener(v -> {
-            input.setText(text);
-            if (input.getText() != null) input.setSelection(input.getText().length());
-            input.requestFocus();
-            Util.showKeyboard(input);
-        });
-        return chip;
-    }
-
-    private void submitLyricsSearchSheet(BottomSheetDialog dialog, TextInputEditText input) {
-        String keyword = input.getText() == null ? "" : input.getText().toString().trim();
-        if (TextUtils.isEmpty(keyword)) {
-            input.setError(getString(R.string.player_lyrics_keyword_required));
-            return;
-        }
-        Util.hideKeyboard(input);
-        dialog.dismiss();
-        searchLyrics(keyword);
     }
 
     private void onAudioLyricsSeek(long positionMs) {
@@ -2488,22 +2352,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         return value;
     }
 
-    private TextView createAudioMoreItem(BottomSheetDialog dialog, String label, Runnable action) {
-        TextView view = new TextView(this);
-        view.setText(label);
-        view.setTextColor(Color.WHITE);
-        view.setTextSize(16);
-        view.setGravity(Gravity.CENTER_VERTICAL);
-        view.setSingleLine(true);
-        view.setPadding(ResUtil.dp2px(6), 0, ResUtil.dp2px(6), 0);
-        view.setBackground(audioSheetItemBackground(false));
-        view.setOnClickListener(v -> {
-            dialog.dismiss();
-            action.run();
-        });
-        return view;
-    }
-
     private LinearLayout.LayoutParams audioMoreItemParams(boolean first) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(44));
         params.topMargin = ResUtil.dp2px(first ? 8 : 2);
@@ -2693,17 +2541,11 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
                 new String[]{
                         getString(R.string.player_lyrics_rows) + " " + getLyricsRowsText(),
                         getString(R.string.player_lyrics_size) + " " + lyricsSizeText(),
-                        getString(R.string.player_lyrics_source) + " " + lyricsSourceText(),
-                        getString(R.string.player_lyrics_search),
-                        getString(R.string.player_desktop_lyrics) + " " + getSwitch(PlayerSetting.isDesktopLyrics()),
                         getString(R.string.player_lyrics_cache) + " " + getString(R.string.player_lyrics_cache_value, LyricsRepository.cacheCount())
                 },
                 new Runnable[]{
                         this::showLyricsRowsPanel,
                         this::showLyricsSizePanel,
-                        this::showLyricsSourcePanel,
-                        this::openLyricsSearchFromSettings,
-                        this::toggleDesktopLyrics,
                         this::clearLyricsCacheFromSettings
                 },
                 3), sheetActionGridParams(8));
@@ -2724,14 +2566,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         showLyricsChoicePanel(getString(R.string.player_lyrics_size), ResUtil.getStringArray(R.array.select_lyrics_size), PlayerSetting.getLyricsTextSizeOption(), which -> {
             PlayerSetting.putLyricsTextSizeOption(which);
             applyLyricsRuntimeSettings();
-        }, LYRICS_TAB_LYRICS);
-    }
-
-    private void showLyricsSourcePanel() {
-        showLyricsChoicePanel(getString(R.string.player_lyrics_source), ResUtil.getStringArray(R.array.select_lyrics_source), LyricsSetting.getSourceMode(), which -> {
-            LyricsSetting.putSourceMode(which);
-            if (mLyrics != null) mLyrics.clear();
-            refreshLyrics();
         }, LYRICS_TAB_LYRICS);
     }
 
@@ -2865,10 +2699,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         return params;
     }
 
-    private void openLyricsSearchFromSettings() {
-        if (!onLyricsSearch()) Notify.show(R.string.player_lyrics_not_found);
-    }
-
     private void clearLyricsCacheFromSettings() {
         LyricsRepository.clearCache();
         Notify.show(R.string.player_lyrics_cache_cleared);
@@ -2882,39 +2712,9 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         }
     }
 
-    private boolean toggleDesktopLyrics() {
-        boolean enabled = !PlayerSetting.isDesktopLyrics();
-        PlayerSetting.putDesktopLyrics(enabled);
-        if (enabled && !canDrawOverlays()) openOverlayPermission();
-        return enabled;
-    }
-
-    private boolean canDrawOverlays() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this);
-    }
-
-    private void openOverlayPermission() {
-        Notify.show(R.string.player_desktop_lyrics_permission);
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
-        try {
-            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())));
-        } catch (Exception e) {
-            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION));
-        }
-    }
-
-    private String getSwitch(boolean value) {
-        return getString(value ? R.string.setting_on : R.string.setting_off);
-    }
-
     private String lyricsSizeText() {
         String[] items = ResUtil.getStringArray(R.array.select_lyrics_size);
         return items[PlayerSetting.getLyricsTextSizeOption()];
-    }
-
-    private String lyricsSourceText() {
-        String[] items = ResUtil.getStringArray(R.array.select_lyrics_source);
-        return items[LyricsSetting.getSourceMode()];
     }
 
     private String getLyricsRowsText() {
@@ -2936,53 +2736,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
 
     private interface LyricsLongGetter {
         long get();
-    }
-
-    private void showAudioTextInputSheet(int titleRes, int hintRes, String text, boolean multiLine, int minLines, int inputType, int imeAction, AudioTextInputHandler handler) {
-        BottomSheetDialog dialog = createAudioSheet();
-        LinearLayout root = createAudioSheetRoot();
-        root.addView(createAudioSheetTitle(getString(titleRes)), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(32)));
-        TextInputLayout layout = new TextInputLayout(this);
-        styleAudioSheetInput(layout, getString(hintRes));
-        TextInputEditText input = new TextInputEditText(layout.getContext());
-        input.setTextColor(Color.WHITE);
-        input.setHintTextColor(0x70FFFFFF);
-        input.setInputType(inputType);
-        input.setImeOptions(imeAction);
-        input.setText(Objects.toString(text, ""));
-        input.setSelectAllOnFocus(!multiLine);
-        if (multiLine) {
-            input.setSingleLine(false);
-            input.setMinLines(minLines);
-            input.setMaxLines(Math.max(minLines, 4));
-        } else {
-            input.setSingleLine(true);
-            input.setMaxLines(1);
-        }
-        if (input.getText() != null) input.setSelection(input.getText().length());
-        layout.addView(input, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(layout, audioSheetWrapTopParams(10));
-
-        LinearLayout actions = new LinearLayout(this);
-        actions.setGravity(Gravity.END);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        actions.addView(createAudioSheetButton(getString(R.string.dialog_negative), false, dialog::dismiss), audioSheetButtonParams(false));
-        actions.addView(createAudioSheetButton(getString(R.string.dialog_positive), true, () -> {
-            Util.hideKeyboard(input);
-            dialog.dismiss();
-            handler.onSubmit(input.getText() == null ? "" : input.getText().toString().trim());
-        }), audioSheetButtonParams(true));
-        root.addView(actions, audioSheetTopParams(10, 42));
-        dialog.setContentView(root);
-        input.setOnEditorActionListener((v, actionId, event) -> {
-            if (multiLine || actionId != imeAction) return false;
-            Util.hideKeyboard(input);
-            dialog.dismiss();
-            handler.onSubmit(input.getText() == null ? "" : input.getText().toString().trim());
-            return true;
-        });
-        showLyricsSettingsSheet(dialog);
-        input.post(() -> Util.showKeyboard(input));
     }
 
     private interface AudioTextInputHandler {
@@ -3851,12 +3604,7 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
     private void updateAudioOnlyState() {
         if (service() == null) return;
         setAudioOnly(LyricsController.isAudioOnly(player()));
-        syncDesktopLyricsAudioContent();
         setAudioStageVisible(shouldUseImmersiveAudio());
-    }
-
-    private void syncDesktopLyricsAudioContent() {
-        if (service() != null) service().setDesktopLyricsAudioContent(isAudioOnly() || isMusicLike());
     }
 
     private void setAudioStageVisible(boolean visible) {
@@ -4271,144 +4019,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         mLyricsLoopLastPlaying = playing;
     }
 
-    private boolean isLyricsSearchAvailable() {
-        if (mLyrics == null || service() == null) return false;
-        updateAudioOnlyState();
-        return isAudioOnly() || isMusicLike();
-    }
-
-    private String getLyricsSearchKeyword() {
-        if (service() == null) return getName();
-        LyricsRequest request = LyricsRequest.from(player());
-        return request.displayKeyword();
-    }
-
-    private List<String> getLyricsSearchSuggestions() {
-        if (service() == null) return withLastLyricsSearchSuggestion(LyricsRequest.searchSuggestions(getName()), getName());
-        LyricsRequest request = LyricsRequest.from(player());
-        return withLastLyricsSearchSuggestion(request.searchSuggestions(), request.stableSignature());
-    }
-
-    private String getLyricsSearchCacheKey(String keyword) {
-        if (service() == null) return keyword;
-        return LyricsRequest.from(player()).withKeyword(keyword).signature();
-    }
-
-    private void rememberLyricsSearchKeyword(String keyword) {
-        String value = Objects.toString(keyword, "").trim();
-        if (TextUtils.isEmpty(value)) return;
-        mLyricsLastSearchSignature = getLyricsSearchSignature();
-        mLyricsLastSearchKeyword = value;
-    }
-
-    private String getLyricsSearchSignature() {
-        if (service() == null) return getName();
-        return LyricsRequest.from(player()).stableSignature();
-    }
-
-    private List<String> withLastLyricsSearchSuggestion(List<String> suggestions, String signature) {
-        String keyword = Objects.toString(mLyricsLastSearchKeyword, "").trim();
-        if (TextUtils.isEmpty(keyword) || !TextUtils.equals(mLyricsLastSearchSignature, signature)) return suggestions;
-        List<String> values = new ArrayList<>();
-        values.add(keyword);
-        for (String suggestion : suggestions) {
-            String value = Objects.toString(suggestion, "").trim();
-            if (TextUtils.isEmpty(value) || containsLyricsSearchSuggestion(values, value)) continue;
-            values.add(value);
-            if (values.size() >= 8) break;
-        }
-        return values;
-    }
-
-    private boolean containsLyricsSearchSuggestion(List<String> suggestions, String keyword) {
-        for (String suggestion : suggestions) if (suggestion.equalsIgnoreCase(keyword)) return true;
-        return false;
-    }
-
-    private void searchLyrics(String keyword) {
-        if (mLyrics == null || service() == null) return;
-        updateAudioOnlyState();
-        int seq = ++mLyricsSearchSeq;
-        String cacheKey = getLyricsSearchCacheKey(keyword);
-        rememberLyricsSearchKeyword(keyword);
-        if (TextUtils.equals(mLyricsSearchKeyword, cacheKey) && mLyricsSearchResults != null && !mLyricsSearchResults.isEmpty()) {
-            showLyricsResults(seq, cacheKey, mLyricsSearchResults, true);
-            return;
-        }
-        showLyricsSearching(seq);
-        mLyrics.search(player(), isAudioOnly() || isMusicLike(), keyword, (results, complete) -> showLyricsResults(seq, cacheKey, results, complete));
-    }
-
-    private void showLyricsSearching(int seq) {
-        dismissLyricsResultDialog();
-        BottomSheetDialog dialog = createAudioSheet();
-        LinearLayout root = createAudioSheetRoot();
-        root.addView(createAudioSheetTitle(getString(R.string.player_lyrics_search)), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(34)));
-        TextView message = createAudioSheetText(getString(R.string.player_lyrics_searching), 15, false);
-        root.addView(message, audioSheetTopParams(14, 44));
-        TextView cancel = createAudioSheetButton(getString(R.string.dialog_cancel), false, () -> {
-            if (seq == mLyricsSearchSeq) mLyricsSearchSeq++;
-            dialog.dismiss();
-        });
-        LinearLayout actions = new LinearLayout(this);
-        actions.setGravity(Gravity.END);
-        actions.addView(cancel, audioSheetButtonParams(false));
-        root.addView(actions, audioSheetTopParams(10, 44));
-        dialog.setContentView(root);
-        dialog.setOnCancelListener(d -> {
-            if (seq == mLyricsSearchSeq) mLyricsSearchSeq++;
-        });
-        dialog.setOnDismissListener(d -> {
-            if (mLyricsResultDialog == dialog) mLyricsResultDialog = null;
-        });
-        mLyricsResultDialog = dialog;
-        showAudioSheet(dialog);
-    }
-
-    private void showLyricsResults(int seq, String cacheKey, List<LyricsResult> results, boolean complete) {
-        if (seq != mLyricsSearchSeq) return;
-        if (isFinishing()) return;
-        if (results == null || results.isEmpty()) {
-            if (complete) {
-                dismissLyricsResultDialog();
-                Notify.show(R.string.player_lyrics_not_found);
-            }
-            return;
-        }
-        mLyricsSearchResults = results;
-        mLyricsSearchKeyword = cacheKey;
-        String[] labels = new String[results.size()];
-        for (int i = 0; i < results.size(); i++) labels[i] = getLyricsResultLabel(results.get(i));
-        if (mLyricsResultDialog != null && mLyricsResultList != null && mLyricsResultDialog.isShowing()) {
-            updateLyricsResultList(labels);
-            updateLyricsResultSheetHeight(labels.length);
-            return;
-        }
-        dismissLyricsResultDialog();
-        BottomSheetDialog dialog = createAudioSheet();
-        LinearLayout root = createAudioSheetRoot();
-        root.addView(createAudioSheetTitle(getString(R.string.player_lyrics_select)), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(34)));
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(false);
-        mLyricsResultList = new LinearLayout(this);
-        mLyricsResultList.setOrientation(LinearLayout.VERTICAL);
-        scroll.addView(mLyricsResultList, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, lyricsResultSheetHeight(labels.length)));
-        dialog.setContentView(root);
-        dialog.setOnCancelListener(d -> {
-            if (seq == mLyricsSearchSeq) mLyricsSearchSeq++;
-        });
-        dialog.setOnDismissListener(d -> {
-            if (mLyricsResultDialog == dialog) {
-                mLyricsResultDialog = null;
-                mLyricsResultList = null;
-            }
-        });
-        mLyricsResultDialog = dialog;
-        updateLyricsResultList(labels);
-        showCompactPlaybackSheet(dialog, false);
-    }
-
     private BottomSheetDialog createAudioSheet() {
         return new BottomSheetDialog(this);
     }
@@ -4612,15 +4222,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         return Math.max(ResUtil.dp2px(102), Math.min(ResUtil.dp2px(desired), max));
     }
 
-    private int lyricsResultSheetHeight(int count) {
-        if (isLandscapeAudioSheet()) {
-            int rows = Math.max(1, Math.min(7, count));
-            return Math.max(ResUtil.dp2px(126), Math.min(ResUtil.dp2px(rows * 64 + 8), audioDrawerListMaxHeight()));
-        }
-        int rows = Math.max(1, Math.min(3, count));
-        return ResUtil.dp2px(rows * 64 + 8);
-    }
-
     private void showAudioSheet(BottomSheetDialog dialog) {
         showAudioSheet(dialog, true);
     }
@@ -4743,55 +4344,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
     }
 
-    private void updateLyricsResultList(String[] labels) {
-        if (mLyricsResultList == null) return;
-        mLyricsResultList.removeAllViews();
-        int selected = getLyricsSelectedIndex();
-        for (int i = 0; i < labels.length; i++) {
-            final int index = i;
-            TextView item = createLyricsResultItem(labels[i], i == selected, () -> {
-                if (index >= 0 && index < mLyricsSearchResults.size()) applyLyrics(mLyricsSearchResults.get(index));
-            });
-            mLyricsResultList.addView(item, lyricsResultItemParams(i == 0));
-        }
-    }
-
-    private void updateLyricsResultSheetHeight(int count) {
-        if (mLyricsResultList == null) return;
-        if (!(mLyricsResultList.getParent() instanceof View scroll)) return;
-        ViewGroup.LayoutParams params = scroll.getLayoutParams();
-        int height = lyricsResultSheetHeight(count);
-        if (params != null && params.height != height) {
-            params.height = height;
-            scroll.setLayoutParams(params);
-        }
-        scroll.requestLayout();
-        mLyricsResultList.requestLayout();
-        if (mLyricsResultDialog == null) return;
-        FrameLayout sheet = mLyricsResultDialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
-        if (sheet == null) return;
-        sheet.requestLayout();
-        sheet.post(() -> {
-            if (mLyricsResultDialog == null || !mLyricsResultDialog.isShowing()) return;
-            FrameLayout current = mLyricsResultDialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
-            if (current == null) return;
-            BottomSheetBehavior.from(current).setState(BottomSheetBehavior.STATE_EXPANDED);
-        });
-    }
-
-    private TextView createLyricsResultItem(String label, boolean selected, Runnable action) {
-        TextView item = createAudioSheetText(label, 15, false);
-        item.setGravity(Gravity.CENTER_VERTICAL);
-        item.setPadding(ResUtil.dp2px(14), 0, ResUtil.dp2px(14), 0);
-        item.setSingleLine(false);
-        item.setMaxLines(2);
-        item.setLineSpacing(ResUtil.dp2px(2), 1.0f);
-        item.setTextColor(selected ? SHEET_TEXT_PRIMARY : SHEET_TEXT_SECONDARY);
-        item.setBackground(lyricsResultItemBackground(selected));
-        item.setOnClickListener(v -> action.run());
-        return item;
-    }
-
     private LinearLayout.LayoutParams lyricsResultItemParams(boolean first) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ResUtil.dp2px(58));
         params.topMargin = ResUtil.dp2px(first ? 8 : 6);
@@ -4802,62 +4354,8 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         return roundRect(selected ? SHEET_CONTROL_BG_SELECTED : SHEET_CONTROL_BG_SUBTLE, SHEET_BUTTON_RADIUS_DP, 1, selected ? SHEET_CONTROL_STROKE_SELECTED : SHEET_CONTROL_STROKE);
     }
 
-    private void applyLyrics(LyricsResult result) {
-        if (mLyrics == null || service() == null) return;
-        mLyricsSearchSeq++;
-        mInlineLyrics = "";
-        mLyrics.apply(player(), result, true, applied -> {
-            if (applied != null) {
-                mLyricsSelectedResultKey = getLyricsResultKey(applied);
-            }
-            updateLyricsResultSelection();
-            Notify.show(applied == null ? getString(R.string.player_lyrics_not_found) : getString(R.string.player_lyrics_loaded, applied.getSource()));
-        });
-    }
-
-    private void updateLyricsResultSelection() {
-        if (mLyricsSearchResults == null) return;
-        String[] labels = new String[mLyricsSearchResults.size()];
-        for (int i = 0; i < mLyricsSearchResults.size(); i++) labels[i] = getLyricsResultLabel(mLyricsSearchResults.get(i));
-        updateLyricsResultList(labels);
-    }
-
-    private int getLyricsSelectedIndex() {
-        if (TextUtils.isEmpty(mLyricsSelectedResultKey) || mLyricsSearchResults == null) return -1;
-        for (int i = 0; i < mLyricsSearchResults.size(); i++) {
-            if (TextUtils.equals(mLyricsSelectedResultKey, getLyricsResultKey(mLyricsSearchResults.get(i)))) return i;
-        }
-        return -1;
-    }
-
-    private String getLyricsResultLabel(LyricsResult result) {
-        String title = TextUtils.isEmpty(result.getTrackName()) ? getString(R.string.player_lyrics_unknown) : result.getTrackName();
-        String artist = TextUtils.isEmpty(result.getArtistName()) ? getString(R.string.player_lyrics_unknown) : result.getArtistName();
-        String type = result.hasWordTiming() ? getString(R.string.player_lyrics_word) : result.isSynced() ? getString(R.string.player_lyrics_synced) : getString(R.string.player_lyrics_plain);
-        return getString(R.string.player_lyrics_result_item, result.getSource(), type, result.getScore(), title, artist);
-    }
-
-    private String getLyricsResultKey(LyricsResult result) {
-        if (result == null) return "";
-        return TextUtils.join("|", new String[]{
-                String.valueOf(result.getSource()),
-                String.valueOf(result.getTrackName()),
-                String.valueOf(result.getArtistName()),
-                String.valueOf(Math.round(result.getDurationMs() / 1000.0)),
-                String.valueOf(result.hasWordTiming()),
-                String.valueOf(result.getLyrics() == null ? 0 : result.getLyrics().hashCode())
-        });
-    }
-
     private void clearLyrics() {
         if (mLyrics != null) mLyrics.clear();
-    }
-
-    private void dismissLyricsResultDialog() {
-        if (mLyricsResultDialog == null) return;
-        mLyricsResultDialog.dismiss();
-        mLyricsResultDialog = null;
-        mLyricsResultList = null;
     }
 
     private void setDetailLyrics(String text) {
@@ -4888,10 +4386,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
         Site site = getSite();
         String text = (getKey() + " " + (site == null ? "" : site.getKey()) + " " + (site == null ? "" : site.getName()) + " " + flag + " " + getName());
         return LyricsController.isMusicLikeText(text);
-    }
-
-    private String getLyricsArtist(String title) {
-        return getArtistFromEpisode(title, getEpisode().getName());
     }
 
     private String getArtistFromEpisode(String title, String episode) {
@@ -5177,10 +4671,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             if (TextUtils.equals(name, track) || TextUtils.equals(savedTitle, title) || name.contains(title)) return i;
         }
         return -1;
-    }
-
-    private boolean hasNextEpisode() {
-        return !getAdjacentEpisode(1).isSelected();
     }
 
     private void setTrackVisible() {
@@ -5709,7 +5199,6 @@ public class VideoActivity extends PlaybackActivity implements Clock.Callback, C
             mDiscMenuPlayer = null;
         }
         mLyricsSearchSeq++;
-        dismissLyricsResultDialog();
         stopAudioCoverRotation();
         if (mLyrics != null) {
             mLyrics.setListener(null);

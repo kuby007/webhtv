@@ -1325,25 +1325,11 @@
     <string name="player_lyrics_offset">Lyric offset</string>
     <string name="player_lyrics_rows">Lyric rows</string>
     <string name="player_lyrics_size">Lyric size</string>
-    <string name="player_lyrics_source">Lyric source</string>
     <string name="player_audio_options">Playback options</string>
     <string name="sheet_back">Back</string>
-    <string name="player_desktop_lyrics">Desktop lyrics</string>
-    <string name="player_desktop_lyrics_permission">Allow display over other apps to show desktop lyrics</string>
     <string name="player_lyrics_cache">Lyric cache</string>
     <string name="player_lyrics_cache_value">%1$d items</string>
     <string name="player_lyrics_cache_cleared">Lyric cache cleared</string>
-    <string name="player_lyrics_search">Search lyrics</string>
-    <string name="player_lyrics_reload">Search lyrics again</string>
-    <string name="player_lyrics_keyword">Lyric keyword</string>
-    <string name="player_lyrics_keyword_required">Enter a lyric keyword</string>
-    <string name="player_lyrics_searching">Searching lyrics...</string>
-    <string name="player_lyrics_not_found">No lyrics found</string>
-    <string name="player_lyrics_loaded">Lyrics loaded: %1$s</string>
-    <string name="player_lyrics_select">Select lyrics</string>
-    <string name="player_lyrics_word">Word</string>
-    <string name="player_lyrics_synced">Synced</string>
-    <string name="player_lyrics_plain">Plain</string>
     <string name="player_audio_badge_audio">Audio</string>
     <string name="player_audio_badge_lyrics">Lyrics</string>
     <string name="player_audio_playlist">Playlist</string>
@@ -1377,8 +1363,6 @@
     <string name="player_audio_background_random_plain_done">Plain background generated</string>
     <string name="player_audio_background_random_decoration_done">Background details generated</string>
     <string name="player_audio_background_random_mix_done">Background mix generated</string>
-    <string name="player_lyrics_unknown">Unknown</string>
-    <string name="player_lyrics_result_item">%1$s · %2$s · %3$d\n%4$s - %5$s</string>
     <string name="player_lyrics_rows_value">%1$d rows</string>
 
 
@@ -1392,17 +1376,6 @@
 
 
 
-    <string-array name="select_lyrics_source">
-        <item>Auto</item>
-        <item>Local</item>
-        <item>AMLL TTML</item>
-        <item>QQMusic QRC</item>
-        <item>Netease YRC</item>
-        <item>Kuwo</item>
-        <item>LRCLIB</item>
-        <item>Kugou</item>
-        <item>Migu</item>
-    </string-array>
 
 
 
