@@ -87,7 +87,6 @@ import com.fongmi.android.tv.ui.dialog.PassDialog;
 import com.fongmi.android.tv.ui.dialog.PlayerKernelDialog;
 import com.fongmi.android.tv.ui.dialog.SubtitleDialog;
 import com.fongmi.android.tv.ui.dialog.TrackDialog;
-import com.fongmi.android.tv.utils.Biometric;
 import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.PiP;
@@ -102,7 +101,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public class LiveActivity extends PlaybackActivity implements CustomKeyDown.Listener, TrackDialog.Listener, Biometric.Callback, PassListener, ConfigListener, LiveListener, GroupAdapter.OnClickListener, ChannelAdapter.OnClickListener, EpgDataAdapter.OnClickListener, CastDialog.Listener, InfoDialog.Listener, LiveControlDialog.Listener, LiveEpgDialog.Listener {
+public class LiveActivity extends PlaybackActivity implements CustomKeyDown.Listener, TrackDialog.Listener, PassListener, ConfigListener, LiveListener, GroupAdapter.OnClickListener, ChannelAdapter.OnClickListener, EpgDataAdapter.OnClickListener, CastDialog.Listener, InfoDialog.Listener, LiveControlDialog.Listener, LiveEpgDialog.Listener {
 
     private static final int LIVE_PIP_WIDTH = 16;
     private static final int LIVE_PIP_HEIGHT = 9;
@@ -978,8 +977,7 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
         mChannelAdapter.addAll(item.getChannel(), getCurrentChannelPosition(item));
         scrollToChannelPosition(Math.max(item.getPosition(), 0));
         if (!item.isKeep() || ++count < 5 || mHides.isEmpty()) return;
-        if (Biometric.enable()) Biometric.show(this);
-        else PassDialog.create().show(this);
+        PassDialog.create().show(this);
         resetPass();
     }
 
@@ -1484,11 +1482,6 @@ public class LiveActivity extends PlaybackActivity implements CustomKeyDown.List
     @Override
     public void setPass(String pass) {
         unlock(pass);
-    }
-
-    @Override
-    public void onBiometricSuccess() {
-        unlock(null);
     }
 
     private void unlock(String pass) {
