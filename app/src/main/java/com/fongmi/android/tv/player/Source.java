@@ -8,7 +8,6 @@ import com.fongmi.android.tv.bean.Episode;
 import com.fongmi.android.tv.bean.Flag;
 import com.fongmi.android.tv.bean.Result;
 import com.fongmi.android.tv.bean.Vod;
-import com.fongmi.android.tv.player.extractor.Force;
 import com.fongmi.android.tv.player.extractor.MpdEdlResolver;
 import com.fongmi.android.tv.player.extractor.MpdSanitizer;
 import com.fongmi.android.tv.player.extractor.Push;
@@ -38,7 +37,6 @@ public class Source {
 
     public Source() {
         extractors = new ArrayList<>();
-        extractors.add(new Force());
         extractors.add(new Push());
         extractors.add(new Strm());
         extractors.add(new Thunder());
