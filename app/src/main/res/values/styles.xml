@@ -84,7 +84,7 @@
     </style>
 
     <!-- jarvis: 弹窗动效（参数取自 VodPlus 的 Material3 弹窗动画：缩放 0.8→1 + 淡入） -->
-    <style name="Jarvis.DialogAnim">
+    <style name="Jarvis.DialogAnim" parent="@android:style/Animation.Dialog">
         <item name="android:windowEnterAnimation">@anim/jarvis_dialog_enter</item>
         <item name="android:windowExitAnimation">@anim/jarvis_dialog_exit</item>
     </style>
