@@ -1273,4 +1273,8 @@ If you do not agree with this statement, please stop using and uninstall this so
     <string name="player_audio_repeat">Repeat</string>
     <string name="lut_close">Close</string>
     <string name="player_lyrics_search">Search lyrics</string>
+    <string name="site_proxy">Site proxy</string>
+    <string name="site_proxy_on">Proxy on</string>
+    <string name="site_proxy_off">Proxy off</string>
+    <string name="site_proxy_no_address">No proxy address available</string>
 </resources>

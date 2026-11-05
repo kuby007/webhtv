@@ -74,6 +74,8 @@ public class Site implements Parcelable {
     @Ignore
     @SerializedName(value = "homePage", alternate = {"home_page", "webHome", "web_home"})
     private String homePage;
+    @SerializedName("proxy")
+    private String proxy;
 
     @Ignore
     @SerializedName("chromeMode")
@@ -152,6 +154,7 @@ public class Site implements Parcelable {
         this.categories = in.createStringArrayList();
         this.style = in.readParcelable(Style.class.getClassLoader());
         this.selected = in.readByte() != 0;
+        this.proxy = in.readString();
     }
 
     public static Site objectFrom(JsonElement element, String spider) {
@@ -240,6 +243,14 @@ public class Site implements Parcelable {
 
     public void setHomePage(String homePage) {
         this.homePage = homePage;
+    }
+
+    public String getProxy() {
+        return TextUtils.isEmpty(proxy) ? "" : proxy;
+    }
+
+    public void setProxy(String proxy) {
+        this.proxy = proxy;
     }
 
     public String getChromeMode() {
@@ -492,6 +503,7 @@ public class Site implements Parcelable {
         dest.writeStringList(this.categories);
         dest.writeParcelable(this.style, flags);
         dest.writeByte(this.selected ? (byte) 1 : (byte) 0);
+        dest.writeString(this.proxy);
     }
 
     public static final Creator<Site> CREATOR = new Creator<>() {

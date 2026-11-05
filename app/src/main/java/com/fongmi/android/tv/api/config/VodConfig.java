@@ -5,6 +5,7 @@ import android.text.TextUtils;
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.api.CspWarmup;
 import com.fongmi.android.tv.api.Decoder;
+import com.fongmi.android.tv.api.SiteProxy;
 import com.fongmi.android.tv.api.loader.BaseLoader;
 import com.fongmi.android.tv.bean.Config;
 import com.fongmi.android.tv.bean.Depot;
@@ -160,6 +161,7 @@ public class VodConfig extends BaseConfig {
         initLive(config, object);
         initWall(config, object);
         initSite(config, object);
+        SiteProxy.apply(getHome());
         initParse(config, object);
         WebHomeExtensionRegistry.get().setGlobalSources(object.get("webHomeExtensions"), config.getUrl());
         config.setLogo(Json.safeString(object, "logo"));
@@ -288,6 +290,7 @@ public class VodConfig extends BaseConfig {
     public void setHome(Site site) {
         SpiderDebug.log("b2-diag", "setHome %s -> %s homePage=%s", getHome() == null ? "null" : getHome().getKey(), site == null ? "null" : site.getKey(), site != null && site.hasHomePage());
         setHome(getConfig(), site, true);
+        SiteProxy.apply(site);
         RefreshEvent.home();
     }
 

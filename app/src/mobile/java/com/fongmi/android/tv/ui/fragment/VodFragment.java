@@ -23,6 +23,7 @@ import androidx.viewpager.widget.ViewPager;
 
 import com.fongmi.android.tv.App;
 import com.fongmi.android.tv.R;
+import com.fongmi.android.tv.api.SiteProxy;
 import com.fongmi.android.tv.api.config.VodConfig;
 import com.fongmi.android.tv.bean.Class;
 import com.fongmi.android.tv.bean.Config;
@@ -298,6 +299,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         else if (item.getItemId() == R.id.push_apk) ApkPushDialog.create().listener(this::onApkDeviceSelected).show(requireActivity());
         else if (item.getItemId() == R.id.push_play) PushPlayDialog.create().listener(this::onPushPlayDeviceSelected).show(requireActivity());
         else if (item.getItemId() == R.id.enhance && homeActivity() != null) homeActivity().openEnhanceFromVod();
+        else if (item.getItemId() == R.id.site_proxy) onSiteProxyToggle();
         else if (item.getItemId() == R.id.web_home_fullscreen) onWebHomeFullscreen();
         else return false;
         return true;
@@ -351,6 +353,15 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
         Menu menu = mBinding.toolbar.getMenu();
         MenuItem fullscreen = menu.findItem(R.id.web_home_fullscreen);
         if (fullscreen != null) fullscreen.setVisible(Setting.isWebHomeFullscreen() && mWeb != null && mWeb.isVisible());
+        MenuItem proxy = menu.findItem(R.id.site_proxy);
+        if (proxy != null) proxy.setChecked(SiteProxy.isEnabled(getHome()));
+    }
+
+    private void onSiteProxyToggle() {
+        Boolean state = SiteProxy.toggle(getHome());
+        if (state == null) Notify.show(R.string.site_proxy_no_address);
+        else Notify.show(state ? R.string.site_proxy_on : R.string.site_proxy_off);
+        updateToolbarMenu();
     }
 
     private void setSearchLongClick() {

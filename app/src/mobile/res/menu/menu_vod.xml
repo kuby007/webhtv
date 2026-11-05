@@ -61,6 +61,12 @@
                 android:id="@+id/enhance"
                 android:icon="@drawable/ic_popup_enhance"
                 android:title="@string/setting_enhance" />
+
+            <item
+                android:id="@+id/site_proxy"
+                android:checkable="true"
+                android:icon="@drawable/ic_fab_link"
+                android:title="@string/site_proxy" />
         </menu>
     </item>
 

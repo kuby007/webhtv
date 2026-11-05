@@ -1247,4 +1247,8 @@
 
     <string name="player_audio_badge_queue">佇列</string>
     <string name="player_audio_repeat">循環</string>
+    <string name="site_proxy">本站代理</string>
+    <string name="site_proxy_on">代理已開啟</string>
+    <string name="site_proxy_off">代理已關閉</string>
+    <string name="site_proxy_no_address">無可用代理地址</string>
 </resources>
