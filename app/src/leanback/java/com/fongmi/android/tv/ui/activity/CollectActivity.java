@@ -53,6 +53,9 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
     private boolean mScrolling;
     private boolean mLeavingForPlayback;
 
+    /** 已确认：长按影片宫格按 selected（含本站），不排除当前首页站点。保留开关便于日后切换。 */
+    private static final boolean EXCLUDE_HOME_FOR_LEGACY = false;
+
     public static void start(Activity activity, String keyword) {
         start(activity, keyword, null);
     }
@@ -62,11 +65,16 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
     }
 
     public static void start(Activity activity, String keyword, String siteKey, String pic, String wallPic) {
+        start(activity, keyword, siteKey, pic, wallPic, null);
+    }
+
+    public static void start(Activity activity, String keyword, String siteKey, String pic, String wallPic, String scope) {
         Intent intent = new Intent(activity, CollectActivity.class);
         intent.putExtra("keyword", keyword);
         intent.putExtra("siteKey", siteKey);
         intent.putExtra("pic", pic);
         intent.putExtra("wallPic", wallPic);
+        if (scope != null) intent.putExtra("scope", scope);
         activity.startActivity(intent);
     }
 
@@ -84,6 +92,15 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
 
     private String getWallPic() {
         return Objects.toString(getIntent().getStringExtra("wallPic"), "");
+    }
+
+    /**
+     * 缺省值必须是 selected：长按宫格、收藏、分类页、Web 直达等旧入口直接调
+     * CollectActivity.start(...) 且不带 scope，保持它们既有的「勾选站点集合」行为。
+     * 只有搜索页显式传来的 scope 才切换模式。
+     */
+    private String getScope() {
+        return Objects.toString(getIntent().getStringExtra("scope"), "selected");
     }
 
     @Override
@@ -179,10 +196,21 @@ public class CollectActivity extends BaseActivity implements CollectAdapter.OnCl
 
     private void setSites() {
         String siteKey = getSiteKey();
+        String scope = getScope();
+        boolean legacy = !getIntent().hasExtra("scope");
+        Site home = VodConfig.get().getHome();
         mSites = new ArrayList<>();
         for (Site site : VodConfig.get().getSites()) {
-            if (!site.isSearchable()) continue;
+            if ("current".equals(scope)) {
+                if (home == null || !site.getKey().equals(home.getKey())) continue;
+            } else if ("all".equals(scope)) {
+                if (site.getSearchable() == 0) continue;
+            } else if (!site.isSearchable()) {
+                continue;
+            }
             if (!siteKey.isEmpty() && !site.getKey().equals(siteKey)) continue;
+            // 长按宫格等旧入口默认保持既有行为；需要「除当前站点外的 selected」时把常量置 true。
+            if (legacy && EXCLUDE_HOME_FOR_LEGACY && home != null && site.getKey().equals(home.getKey())) continue;
             mSites.add(site);
         }
         SiteHealthStore.sortSites(mSites);

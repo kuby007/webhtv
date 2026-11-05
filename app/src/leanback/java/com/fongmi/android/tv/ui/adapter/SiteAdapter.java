@@ -72,6 +72,13 @@ public class SiteAdapter extends RecyclerView.Adapter<SiteAdapter.ViewHolder> {
         setEnable(type == 3);
     }
 
+    /** 反选：仅作用于筛选后当前显示的站点（mItems）。 */
+    public void invert() {
+        if (type == 1) for (Site site : mItems) site.setSearchable(!site.isSearchable()).save();
+        if (type == 2) for (Site site : mItems) site.setChangeable(!site.isChangeable()).save();
+        notifyItemRangeChanged(0, getItemCount());
+    }
+
     private void addAll() {
         long collectStart = System.currentTimeMillis();
         for (Site site : VodConfig.get().getSites()) if (!site.isHide()) allItems.add(site);

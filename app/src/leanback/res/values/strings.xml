@@ -33,4 +33,13 @@
     <string name="timer_60">1 hour</string>
     <string name="timer_delay">Delay 5 minutes</string>
     <string name="timer_cancel">Cancel timer</string>
+
+    <!-- Search scope -->
+    <string name="search_scope">Search scope</string>
+    <string name="search_scope_all">All sites</string>
+    <string name="search_scope_current">Current site</string>
+    <string name="search_scope_selected">Selected sites</string>
+    <string name="search_scope_hint">Scope works in Selected mode only</string>
+    <string name="site_select_all">Select all</string>
+    <string name="site_invert">Invert</string>
 </resources>

@@ -2,12 +2,14 @@ package com.fongmi.android.tv.ui.activity;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -47,7 +49,16 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
 
     private static final int HOT_LIMIT = 10;
 
+    public static final String SCOPE_ALL = "all";
+    public static final String SCOPE_CURRENT = "current";
+    public static final String SCOPE_SELECTED = "selected";
+    /** 短按首页搜索 = selected 且按钮高亮 selected；长按首页搜索（带 siteKey）= 本站。
+     *  改成 true 则短按继承用户上次点选的按钮（用户允许的另一种口径）。 */
+    private static final boolean INHERIT_SCOPE = false;
+    private static final String DEFAULT_SCOPE = SCOPE_SELECTED;
+
     private ActivitySearchBinding mBinding;
+    private String mScope;
     private RecordAdapter mRecordAdapter;
     private WordAdapter mWordAdapter;
     private HotWordAdapter mHotTvAdapter;
@@ -117,11 +128,19 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
         CustomKeyboard.init(this, mBinding);
         setRecyclerView();
         checkKeyword();
+        mScope = resolveScope();
+        // 长按入口不写回持久化，避免下次短按被带成「本站」。
+        if (TextUtils.isEmpty(getSiteKey())) Setting.putSearchScope(mScope);
+        setScopeButtons();
         onSearch();
     }
 
     @Override
     protected void initEvent() {
+        mBinding.modeAll.setOnClickListener(v -> setScope(SCOPE_ALL));
+        mBinding.modeCurrent.setOnClickListener(v -> setScope(SCOPE_CURRENT));
+        mBinding.modeSelected.setOnClickListener(v -> setScope(SCOPE_SELECTED));
+        mBinding.scope.setOnClickListener(v -> showDialog());
         mBinding.keyword.setOnEditorActionListener((textView, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_DONE) onSearch();
             return true;
@@ -140,6 +159,45 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
                 mBinding.keyword.requestFocus();
             }
         });
+    }
+
+    /**
+     * 首页搜索宫格入口映射：
+     *  短按（无 siteKey）→ selected：按勾选站点集合搜，搜索页 selected 按钮高亮；
+     *  长按（带 siteKey=当前站）→ current：只搜本站，搜索页「当前搜索」按钮高亮。
+     *  siteKey 在 CollectActivity.setSites() 里仍是最高优先级，长按结果严格单站。
+     */
+    private String resolveScope() {
+        if (!TextUtils.isEmpty(getSiteKey())) return SCOPE_CURRENT;
+        if (INHERIT_SCOPE) return Setting.getSearchScope();
+        return DEFAULT_SCOPE;
+    }
+
+    private void setScope(String scope) {
+        mScope = scope;
+        Setting.putSearchScope(scope);
+        setScopeButtons();
+    }
+
+    private void setScopeButtons() {
+        boolean all = SCOPE_ALL.equals(mScope);
+        boolean current = SCOPE_CURRENT.equals(mScope);
+        boolean selected = SCOPE_SELECTED.equals(mScope);
+        mBinding.modeAll.setSelected(all);
+        mBinding.modeCurrent.setSelected(current);
+        mBinding.modeSelected.setSelected(selected);
+        // 选中态背景用项目既有 selector_site_item，再加粗文字，保证 TV 聚焦态下仍可区分。
+        styleScopeButton(mBinding.modeAll, all);
+        styleScopeButton(mBinding.modeCurrent, current);
+        styleScopeButton(mBinding.modeSelected, selected);
+        // 搜索范围仅对「选定搜索」生效。
+        boolean editable = selected;
+        mBinding.scope.setEnabled(editable);
+        mBinding.scope.setAlpha(editable ? 1f : 0.4f);
+    }
+
+    private void styleScopeButton(TextView view, boolean selected) {
+        view.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
     }
 
     private void setRecyclerView() {
@@ -271,12 +329,12 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
         String keyword = mBinding.keyword.getText().toString().trim();
         App.post(() -> mRecordAdapter.add(keyword), 250);
         Util.hideKeyboard(mBinding.keyword);
-        CollectActivity.start(this, keyword, getSiteKey(), getPic(), getWallPic());
+        CollectActivity.start(this, keyword, getSiteKey(), getPic(), getWallPic(), mScope);
     }
 
     @Override
     public void showDialog() {
-        SiteDialog.create().search().show(this);
+        SiteDialog.create().search().range().show(this);
     }
 
     @Override
@@ -356,13 +414,17 @@ public class SearchActivity extends BaseActivity implements WordAdapter.OnClickL
     private boolean handleKeywordKey(KeyEvent event) {
         if (!KeyUtil.isRightKey(event)) return false;
         if (mBinding.keyword.getSelectionEnd() < mBinding.keyword.getText().length()) return false;
+        if (mBinding.scope.isEnabled()) {
+            mBinding.scope.requestFocus();
+            return true;
+        }
         boolean hasRecord = mBinding.recordLayout.getVisibility() == View.VISIBLE;
         return hasRecord ? focusFirst(mBinding.recordRecycler) : focusFirstWord();
     }
 
     private boolean handleKeyboardKey(KeyEvent event, View item) {
         if (KeyUtil.isUpKey(event) && isFirstRow(mBinding.keyboard, item)) {
-            mBinding.keyword.requestFocus();
+            mBinding.modeAll.requestFocus();
             return true;
         }
         if (KeyUtil.isLeftKey(event) && isFirstInRow(mBinding.keyboard, item)) return true;

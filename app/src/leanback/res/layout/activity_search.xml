@@ -10,14 +10,17 @@
     android:padding="24dp">
 
     <androidx.appcompat.widget.LinearLayoutCompat
-        android:layout_width="wrap_content"
+        android:id="@+id/searchPanel"
+        android:layout_width="320dp"
         android:layout_height="match_parent"
         android:layout_marginEnd="24dp"
         android:orientation="vertical">
 
         <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/searchBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <com.fongmi.android.tv.ui.custom.CustomMic
@@ -33,7 +36,7 @@
 
             <com.fongmi.android.tv.ui.custom.CustomSearchView
                 android:id="@+id/keyword"
-                android:layout_width="match_parent"
+                android:layout_width="220dp"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_vertical"
                 android:background="@null"
@@ -44,17 +47,97 @@
                 android:inputType="textCapWords|textAutoCorrect|textAutoComplete"
                 android:letterSpacing="0.02"
                 android:maxLength="255"
-                android:nextFocusDown="@id/keyboard"
+                android:nextFocusDown="@id/modeAll"
+                android:nextFocusRight="@id/scope"
                 android:singleLine="true"
                 android:textColor="@color/white"
                 android:textColorHint="@color/white"
                 android:textCursorDrawable="@drawable/shape_cursor"
                 android:textSize="24sp" />
 
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/scope"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center_vertical"
+                android:layout_marginStart="12dp"
+                android:background="@drawable/selector_site_action"
+                android:contentDescription="@string/search_scope"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:nextFocusLeft="@id/keyword"
+                android:nextFocusDown="@id/modeSelected"
+                android:nextFocusUp="@id/keyword"
+                android:padding="8dp"
+                android:src="@drawable/ic_search_scope"
+                app:tint="@color/site_action_icon" />
+
+        </androidx.appcompat.widget.LinearLayoutCompat>
+
+        <!-- 三个搜索模式：顺序 all / current / selected，选中态沿用 selector_site_item -->
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/modeBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/modeAll"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/selector_site_item"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:gravity="center"
+                android:nextFocusUp="@id/keyword"
+                android:nextFocusDown="@id/keyboard"
+                android:nextFocusRight="@id/modeCurrent"
+                android:text="@string/search_scope_all"
+                android:textColor="@color/site_action_icon"
+                android:textSize="14sp" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/modeCurrent"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/selector_site_item"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:gravity="center"
+                android:nextFocusUp="@id/keyword"
+                android:nextFocusDown="@id/keyboard"
+                android:nextFocusLeft="@id/modeAll"
+                android:nextFocusRight="@id/modeSelected"
+                android:text="@string/search_scope_current"
+                android:textColor="@color/site_action_icon"
+                android:textSize="14sp" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/modeSelected"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:background="@drawable/selector_site_item"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:gravity="center"
+                android:nextFocusUp="@id/keyword"
+                android:nextFocusDown="@id/keyboard"
+                android:nextFocusLeft="@id/modeCurrent"
+                android:text="@string/search_scope_selected"
+                android:textColor="@color/site_action_icon"
+                android:textSize="14sp" />
+
         </androidx.appcompat.widget.LinearLayoutCompat>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/keyboard"
+            android:nextFocusUp="@id/modeAll"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:clipChildren="false"

@@ -33,4 +33,13 @@
     <string name="timer_60">1 小时</string>
     <string name="timer_delay">延长 5 分钟</string>
     <string name="timer_cancel">取消定时器</string>
+
+    <!-- 搜索范围 -->
+    <string name="search_scope">搜索范围</string>
+    <string name="search_scope_all">全站搜索</string>
+    <string name="search_scope_current">当前搜索</string>
+    <string name="search_scope_selected">选定搜索</string>
+    <string name="search_scope_hint">搜索范围仅在选定搜索模式生效</string>
+    <string name="site_select_all">全选</string>
+    <string name="site_invert">反选</string>
 </resources>

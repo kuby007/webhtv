@@ -32,6 +32,8 @@ import com.fongmi.android.tv.utils.ResUtil;
 import com.github.catvod.crawler.SpiderDebug;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import java.util.List;
+
 public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickListener {
 
     private static final int GRID_COUNT = 3;
@@ -49,6 +51,7 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     private SiteAdapter adapter;
     private long showStart;
     private boolean action;
+    private boolean range;
     private boolean listLoaded;
     private int type;
 
@@ -57,6 +60,13 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
     }
 
     public SiteDialog search() {
+        type = 1;
+        return this;
+    }
+
+    /** 搜索范围弹窗 = 选定搜索的选择弹窗：筛选框 + 全选/反选，作用范围仅筛选后当前显示的站点。 */
+    public SiteDialog range() {
+        range = true;
         type = 1;
         return this;
     }
@@ -142,8 +152,10 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         long start = System.currentTimeMillis();
         setRootWidth();
         setRecyclerHeight(INITIAL_BATCH);
-        binding.searchBar.setVisibility(View.GONE);
-        binding.keyword.setVisibility(View.GONE);
+        binding.searchBar.setVisibility(range ? View.VISIBLE : View.GONE);
+        binding.keyword.setVisibility(range ? View.VISIBLE : View.GONE);
+        binding.selectAll.setVisibility(range ? View.VISIBLE : View.GONE);
+        binding.invert.setVisibility(range ? View.VISIBLE : View.GONE);
         binding.actionGap.setVisibility(View.GONE);
         binding.action.setVisibility(action ? View.VISIBLE : View.GONE);
         binding.search.setVisibility(action ? View.VISIBLE : View.GONE);
@@ -180,6 +192,7 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         runAfterFirstPreDraw("list preDraw", () -> {
             if (adapter != null) adapter.showAll();
             log("list expanded total=%sms items=%s", cost(), adapter == null ? -1 : adapter.getItemCount());
+            if (binding != null) binding.recycler.post(this::focusCurrentSite);
         });
     }
 
@@ -191,6 +204,12 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
             App.post(() -> HistoryDialog.create().vod().readOnly().show(activity, item -> loadConfig(activity, item)), 100);
         });
         binding.mode.setOnClickListener(this::onMode);
+        binding.selectAll.setOnClickListener(v -> {
+            if (adapter != null) adapter.selectAll();
+        });
+        binding.invert.setOnClickListener(v -> {
+            if (adapter != null) adapter.invert();
+        });
         binding.select.setOnClickListener(v -> {
             if (adapter != null) adapter.selectAll();
         });
@@ -265,6 +284,42 @@ public class SiteDialog extends BaseAlertDialog implements SiteAdapter.OnClickLi
         binding.change.setEnabled(enabled);
         binding.select.setEnabled(enabled && type > 0);
         binding.cancel.setEnabled(enabled && type > 0);
+        binding.selectAll.setEnabled(enabled);
+        binding.invert.setEnabled(enabled);
+    }
+
+    /**
+     * 切站列表：把当前站点滚到可见区前端并获得焦点。
+     * 仅对 type=0 的站点列表生效；range（搜索范围）弹窗保持默认焦点行为。
+     */
+    private void focusCurrentSite() {
+        if (binding == null || adapter == null || range || type != 0) return;
+        List<Site> items = adapter.getItems();
+        int target = -1;
+        for (int i = 0; i < items.size(); i++) {
+            if (items.get(i).isSelected()) {
+                target = i;
+                break;
+            }
+        }
+        if (target < 0) return;
+        RecyclerView.LayoutManager manager = binding.recycler.getLayoutManager();
+        if (manager instanceof GridLayoutManager) ((GridLayoutManager) manager).scrollToPositionWithOffset(target, 0);
+        else binding.recycler.scrollToPosition(target);
+        final int position = target;
+        binding.recycler.post(() -> focusItem(position, true));
+    }
+
+    private void focusItem(int position, boolean retry) {
+        if (binding == null) return;
+        RecyclerView.ViewHolder holder = binding.recycler.findViewHolderForAdapterPosition(position);
+        View view = holder == null ? null : holder.itemView;
+        if (view != null) {
+            view.requestFocus();
+            view.setSelected(true);
+        } else if (retry) {
+            binding.recycler.post(() -> focusItem(position, false));
+        }
     }
 
     @Override

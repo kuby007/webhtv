@@ -573,6 +573,16 @@ public class Setting {
         Prefers.put("search_column", column == 2 ? 2 : 1);
     }
 
+    /** 搜索页默认模式：选定搜索（短按首页搜索入口）。 */
+    public static String getSearchScope() {
+        String scope = Prefers.getString("search_scope", "selected");
+        return "all".equals(scope) || "current".equals(scope) || "selected".equals(scope) ? scope : "selected";
+    }
+
+    public static void putSearchScope(String scope) {
+        Prefers.put("search_scope", "all".equals(scope) || "current".equals(scope) || "selected".equals(scope) ? scope : "selected");
+    }
+
     public static boolean isDebugLog() {
         return DebugLogStore.isEnabled();
     }
