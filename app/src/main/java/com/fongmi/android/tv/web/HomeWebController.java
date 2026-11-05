@@ -92,6 +92,7 @@ public class HomeWebController {
         this.webView = webView;
         this.listener = listener;
         this.debugTools = debugTools;
+        SpiderDebug.log("b2-diag", "new controller=%s prevActive=%s", System.identityHashCode(this), System.identityHashCode(active));
         this.density = activity.getResources().getDisplayMetrics().density;
         this.injectedExtensions = new HashSet<>();
         this.extensionReloadRunnable = this::consumeExtensionReload;
@@ -127,7 +128,11 @@ public class HomeWebController {
     }
 
     public boolean load(Site site, boolean force) {
-        if (!site.hasHomePage()) return false;
+        SpiderDebug.log("b2-diag", "load site=%s hasHomePage=%s force=%s", site.getKey(), site.hasHomePage(), force);
+        if (!site.hasHomePage()) {
+            SpiderDebug.log("b2-diag", "load return false (no homePage) site=%s", site.getKey());
+            return false;
+        }
         if (Setting.isWebHomeFullscreen()) listener.applyDefaultChrome(site);
         else listener.setChrome(normalChrome());
         Server.get().start();
@@ -145,6 +150,7 @@ public class HomeWebController {
             loadUrl(force ? reloadUrl(homePage) : homePage);
         }
         show();
+        SpiderDebug.log("b2-diag", "load return true site=%s url=%s", site.getKey(), homePage);
         return true;
     }
 
@@ -231,12 +237,14 @@ public class HomeWebController {
 
     public void show() {
         active = this;
+        SpiderDebug.log("b2-diag", "show controller=%s active=%s", System.identityHashCode(this), System.identityHashCode(active));
         webView.setVisibility(View.VISIBLE);
         focusWebView("show");
         consumeExtensionReload();
     }
 
     public void hide() {
+        SpiderDebug.log("b2-diag", "hide controller=%s", System.identityHashCode(this));
         webView.setVisibility(View.GONE);
     }
 
@@ -428,6 +436,7 @@ public class HomeWebController {
         webView.stopLoading();
         webView.destroy();
         if (debugTools) WebView.setWebContentsDebuggingEnabled(false);
+        SpiderDebug.log("b2-diag", "destroy controller=%s active=%s cleared=%s", System.identityHashCode(this), System.identityHashCode(active), active == this);
         if (active == this) active = null;
     }
 

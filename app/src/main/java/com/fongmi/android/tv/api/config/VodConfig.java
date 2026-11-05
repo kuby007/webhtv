@@ -20,6 +20,7 @@ import com.fongmi.android.tv.web.ext.WebHomeExtensionRegistry;
 import com.github.catvod.bean.Doh;
 import com.github.catvod.bean.Header;
 import com.github.catvod.bean.Proxy;
+import com.github.catvod.crawler.SpiderDebug;
 import com.github.catvod.utils.Json;
 import com.google.gson.JsonObject;
 
@@ -285,6 +286,7 @@ public class VodConfig extends BaseConfig {
     }
 
     public void setHome(Site site) {
+        SpiderDebug.log("b2-diag", "setHome %s -> %s homePage=%s", getHome() == null ? "null" : getHome().getKey(), site == null ? "null" : site.getKey(), site != null && site.hasHomePage());
         setHome(getConfig(), site, true);
         RefreshEvent.home();
     }

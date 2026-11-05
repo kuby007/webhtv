@@ -63,6 +63,7 @@ import com.fongmi.android.tv.utils.ImgUtil;
 import com.fongmi.android.tv.utils.Notify;
 import com.fongmi.android.tv.utils.ResUtil;
 import com.fongmi.android.tv.web.HomeWebController;
+import com.github.catvod.crawler.SpiderDebug;
 import com.fongmi.android.tv.web.WebHomeChrome;
 import com.fongmi.android.tv.web.WebHomeChromeStartup;
 import com.fongmi.android.tv.web.WebHomeViewport;
@@ -434,6 +435,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     public void onRefreshEvent(RefreshEvent event) {
         switch (event.getType()) {
             case HOME:
+                SpiderDebug.log("b2-diag", "HOME event webVisible=%s home=%s hasHomePage=%s", mWeb != null && mWeb.isVisible(), getHome() == null ? "null" : getHome().getKey(), getHome() != null && getHome().hasHomePage());
                 if (mWeb != null && mWeb.isVisible()) {
                     Site home = getHome();
                     WebHomeChromeStartup.remember(getConfig(), home);
@@ -620,6 +622,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     }
 
     private void hideNativeContent() {
+        SpiderDebug.log("b2-diag", "hideNativeContent");
         mBinding.appBar.setExpanded(true, false);
         boolean hidden = isNativeChromeHidden();
         mBinding.appBar.setVisibility(hidden ? View.GONE : View.VISIBLE);
@@ -634,6 +637,7 @@ public class VodFragment extends BaseFragment implements ConfigListener, SiteLis
     }
 
     private void showNativeContent() {
+        SpiderDebug.log("b2-diag", "showNativeContent");
         requestNormalChrome();
         mBinding.type.setVisibility(View.VISIBLE);
         updateTypeMoreVisible();
