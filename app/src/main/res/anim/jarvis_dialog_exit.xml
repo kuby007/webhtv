@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- jarvis: 弹窗出场（源自 VodPlus 的 m3_motion_fade_exit） -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@interpolator/m3_sys_motion_easing_emphasized_accelerate"
+    android:duration="150">
+    <alpha android:fromAlpha="1.0" android:toAlpha="0.0" />
+</set>

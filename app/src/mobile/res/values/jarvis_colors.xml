@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- jarvis 主题色板（新增文件，浅色） -->
+<resources>
+    <color name="jarvis_primary">#0891B3</color>
+    <color name="jarvis_primary_container">#D5EDF3</color>
+    <color name="jarvis_on_primary_container">#07303C</color>
+    <color name="jarvis_window_bg">#F9FAFC</color>
+</resources>

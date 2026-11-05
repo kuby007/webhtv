@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- jarvis 主题色板（新增文件，深色模式仅窗口底色不同） -->
+<resources>
+    <color name="jarvis_window_bg">#15191D</color>
+</resources>

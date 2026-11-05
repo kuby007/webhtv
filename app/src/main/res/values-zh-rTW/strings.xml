@@ -1,7 +1,7 @@
 <resources xmlns:xliff="http://schemas.android.com/apk/res-auto">
 
     <!-- App -->
-    <string name="app_name">Xbox</string>
+    <string name="app_name">theme-test</string>
 
     <!-- Live -->
     <string name="live_pass">密碼</string>
@@ -670,10 +670,10 @@
     <string name="setting_on">開</string>
 
     <!-- About -->
-    <string name="about_title">關於 Xbox</string>
+    <string name="about_title">關於 theme-test</string>
     <string name="about_free_badge">定制版</string>
     <string name="about_version">版本 %1$s · %2$s/%3$s</string>
-    <string name="about_disclaimer">Xbox 是基於開源項目 webhtv 定制的個人版本，僅供技術學習與個人使用。
+    <string name="about_disclaimer">theme-test 是基於開源項目 webhtv 定制的個人版本，僅供技術學習與個人使用。
 
 軟件本身不提供、不存儲任何視頻內容、直播源與接口源，全部內容由用戶自行添加。請遵守當地法律法規，尊重版權方與內容提供方的權益，不要將本軟件用於侵權、盜版或商業用途。
 
